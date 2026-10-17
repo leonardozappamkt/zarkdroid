@@ -61,9 +61,13 @@ export default function SettingsPage() {
     setIsTesting(true);
     setTestResult(null);
     try {
-      const res = await testSupabaseConnection();
+      const res = await testSupabaseConnection(supabaseUrl, supabaseAnonKey);
       setTestResult(res);
-      setIsConfigured(isSupabaseConfigured());
+      if (res.success) {
+        localStorage.setItem('zarkdroid_sb_url', supabaseUrl.trim());
+        localStorage.setItem('zarkdroid_sb_key', supabaseAnonKey.trim());
+        setIsConfigured(true);
+      }
     } finally {
       setIsTesting(false);
     }
@@ -219,6 +223,9 @@ export default function SettingsPage() {
                 onChange={(e) => setSupabaseUrl(e.target.value)}
                 className="w-full px-3.5 py-2.5 rounded-xl bg-slate-800/80 border border-slate-700 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 text-sm font-mono"
               />
+              <p className="text-[11px] text-slate-400 mt-1">
+                📌 A URL do projeto deve começar com <code className="text-emerald-400">https://</code> e terminar com <code className="text-emerald-400">.supabase.co</code> (ex: <em>https://seu-id.supabase.co</em>).
+              </p>
             </div>
 
             <div>
@@ -227,11 +234,14 @@ export default function SettingsPage() {
               </label>
               <input
                 type="password"
-                placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                placeholder="sb_publishable_... ou eyJhbGciOiJIUzI1NiIsIn..."
                 value={supabaseAnonKey}
                 onChange={(e) => setSupabaseAnonKey(e.target.value)}
                 className="w-full px-3.5 py-2.5 rounded-xl bg-slate-800/80 border border-slate-700 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 text-sm font-mono"
               />
+              <p className="text-[11px] text-slate-400 mt-1">
+                🔑 Cole aqui a sua chave pública (começa com <code className="text-blue-400">sb_publishable_...</code> ou <code className="text-blue-400">eyJhbG...</code>).
+              </p>
             </div>
 
             <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
