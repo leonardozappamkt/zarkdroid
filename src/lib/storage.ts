@@ -273,12 +273,113 @@ export const storage = {
     this.saveDecks(updatedDecks);
   },
 
+  async syncToSupabase(): Promise<{ success: boolean; message: string }> {
+    const client = getSupabaseClient();
+    if (!client) {
+      return { success: false, message: 'Supabase não está configurado.' };
+    }
+
+    try {
+      const decks = this.getDecks();
+      const cards = this.getCards();
+
+      // Upsert decks
+      const deckRows = decks.map((d) => ({
+        id: d.id,
+        title: d.title,
+        description: d.description,
+        color: d.color,
+        created_at: d.created_at,
+      }));
+
+      const { error: deckErr } = await client.from('decks').upsert(deckRows);
+      if (deckErr) throw deckErr;
+
+      // Upsert cards
+      const cardRows = cards.map((c) => ({
+        id: c.id,
+        deck_id: c.deck_id,
+        front: c.front,
+        back: c.back,
+        extra: c.extra || null,
+        tags: c.tags || [],
+        state: c.state,
+        repetitions: c.repetitions,
+        interval: c.interval,
+        ease_factor: c.ease_factor,
+        due_date: c.due_date,
+        created_at: c.created_at,
+      }));
+
+      const { error: cardErr } = await client.from('flashcards').upsert(cardRows);
+      if (cardErr) throw cardErr;
+
+      return { success: true, message: 'Sincronização com o Supabase concluída com sucesso!' };
+    } catch (err: any) {
+      return { success: false, message: `Erro ao sincronizar com Supabase: ${err.message}` };
+    }
+  },
+
+  async syncFromSupabase(): Promise<{ success: boolean; message: string }> {
+    const client = getSupabaseClient();
+    if (!client) {
+      return { success: false, message: 'Supabase não está configurado.' };
+    }
+
+    try {
+      const { data: remoteDecks, error: deckErr } = await client.from('decks').select('*');
+      if (deckErr) throw deckErr;
+
+      const { data: remoteCards, error: cardErr } = await client.from('flashcards').select('*');
+      if (cardErr) throw cardErr;
+
+      if (remoteDecks && remoteDecks.length > 0) {
+        this.saveDecks(
+          remoteDecks.map((d: any) => ({
+            ...d,
+            total_cards: 0,
+            new_count: 0,
+            learn_count: 0,
+            due_count: 0,
+          }))
+        );
+      }
+
+      if (remoteCards) {
+        this.saveCards(remoteCards);
+      }
+
+      return { success: true, message: 'Dados baixados do Supabase com sucesso!' };
+    } catch (err: any) {
+      return { success: false, message: `Erro ao baixar dados do Supabase: ${err.message}` };
+    }
+  },
+
   updateCard(card: Flashcard): void {
     const cards = this.getCards();
     const index = cards.findIndex((c) => c.id === card.id);
     if (index !== -1) {
       cards[index] = card;
       this.saveCards(cards);
+
+      const client = getSupabaseClient();
+      if (client) {
+        Promise.resolve(
+          client.from('flashcards').upsert({
+            id: card.id,
+            deck_id: card.deck_id,
+            front: card.front,
+            back: card.back,
+            extra: card.extra || null,
+            tags: card.tags || [],
+            state: card.state,
+            repetitions: card.repetitions,
+            interval: card.interval,
+            ease_factor: card.ease_factor,
+            due_date: card.due_date,
+          })
+        ).catch((e) => console.warn('Supabase auto-sync card update failed:', e));
+      }
     }
   },
 
@@ -293,12 +394,40 @@ export const storage = {
     const cards = this.getCards();
     cards.push(newCard);
     this.saveCards(cards);
+
+    const client = getSupabaseClient();
+    if (client) {
+      Promise.resolve(
+        client.from('flashcards').insert({
+          id: newCard.id,
+          deck_id: newCard.deck_id,
+          front: newCard.front,
+          back: newCard.back,
+          extra: newCard.extra || null,
+          tags: newCard.tags || [],
+          state: newCard.state,
+          repetitions: newCard.repetitions,
+          interval: newCard.interval,
+          ease_factor: newCard.ease_factor,
+          due_date: newCard.due_date,
+          created_at: newCard.created_at,
+        })
+      ).catch((e) => console.warn('Supabase auto-sync create card failed:', e));
+    }
+
     return newCard;
   },
 
   deleteCard(cardId: string): void {
     const cards = this.getCards().filter((c) => c.id !== cardId);
     this.saveCards(cards);
+
+    const client = getSupabaseClient();
+    if (client) {
+      Promise.resolve(
+        client.from('flashcards').delete().eq('id', cardId)
+      ).catch((e) => console.warn('Supabase delete card failed:', e));
+    }
   },
 
   createDeck(title: string, description: string, color?: string): Deck {
@@ -318,6 +447,20 @@ export const storage = {
     const decks = this.getDecks();
     decks.push(newDeck);
     this.saveDecks(decks);
+
+    const client = getSupabaseClient();
+    if (client) {
+      Promise.resolve(
+        client.from('decks').insert({
+          id: newDeck.id,
+          title: newDeck.title,
+          description: newDeck.description,
+          color: newDeck.color,
+          created_at: newDeck.created_at,
+        })
+      ).catch((e) => console.warn('Supabase create deck failed:', e));
+    }
+
     return newDeck;
   },
 
@@ -326,5 +469,13 @@ export const storage = {
     const cards = this.getCards().filter((c) => c.deck_id !== deckId);
     this.saveDecks(decks);
     this.saveCards(cards);
+
+    const client = getSupabaseClient();
+    if (client) {
+      Promise.resolve(
+        client.from('decks').delete().eq('id', deckId)
+      ).catch((e) => console.warn('Supabase delete deck failed:', e));
+    }
   },
 };
+

@@ -13,35 +13,81 @@ import {
   AlertCircle,
   RefreshCw,
   Flame,
-  Globe
+  Globe,
+  Send,
+  ArrowDownCircle,
+  Check
 } from 'lucide-react';
 import Navbar from '@/components/Navbar';
 import { storage } from '@/lib/storage';
-import { isSupabaseConfigured } from '@/lib/supabase';
+import { isSupabaseConfigured, testSupabaseConnection } from '@/lib/supabase';
 
 export default function SettingsPage() {
   const [supabaseUrl, setSupabaseUrl] = useState('');
   const [supabaseAnonKey, setSupabaseAnonKey] = useState('');
   const [isConfigured, setIsConfigured] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
+  const [testResult, setTestResult] = useState<{ success?: boolean; message?: string } | null>(null);
+  const [syncResult, setSyncResult] = useState<{ success?: boolean; message?: string } | null>(null);
+  const [isTesting, setIsTesting] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
 
   useEffect(() => {
     setIsConfigured(isSupabaseConfigured());
     if (typeof window !== 'undefined') {
       const storedUrl = localStorage.getItem('zarkdroid_sb_url') || process.env.NEXT_PUBLIC_SUPABASE_URL || '';
       const storedKey = localStorage.getItem('zarkdroid_sb_key') || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
-      setSupabaseUrl(storedUrl);
-      setSupabaseAnonKey(storedKey);
+      if (!storedUrl.includes('placeholder')) {
+        setSupabaseUrl(storedUrl);
+      }
+      if (!storedKey.includes('placeholder')) {
+        setSupabaseAnonKey(storedKey);
+      }
     }
   }, []);
 
   const handleSaveSupabase = (e: React.FormEvent) => {
     e.preventDefault();
     if (typeof window !== 'undefined') {
-      localStorage.setItem('zarkdroid_sb_url', supabaseUrl);
-      localStorage.setItem('zarkdroid_sb_key', supabaseAnonKey);
+      localStorage.setItem('zarkdroid_sb_url', supabaseUrl.trim());
+      localStorage.setItem('zarkdroid_sb_key', supabaseAnonKey.trim());
+      setIsConfigured(isSupabaseConfigured());
       setSaveSuccess(true);
       setTimeout(() => setSaveSuccess(false), 3000);
+    }
+  };
+
+  const handleTestConnection = async () => {
+    setIsTesting(true);
+    setTestResult(null);
+    try {
+      const res = await testSupabaseConnection();
+      setTestResult(res);
+      setIsConfigured(isSupabaseConfigured());
+    } finally {
+      setIsTesting(false);
+    }
+  };
+
+  const handleSyncToSupabase = async () => {
+    setIsSyncing(true);
+    setSyncResult(null);
+    try {
+      const res = await storage.syncToSupabase();
+      setSyncResult(res);
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
+  const handleSyncFromSupabase = async () => {
+    setIsSyncing(true);
+    setSyncResult(null);
+    try {
+      const res = await storage.syncFromSupabase();
+      setSyncResult(res);
+    } finally {
+      setIsSyncing(false);
     }
   };
 
@@ -130,7 +176,7 @@ export default function SettingsPage() {
           </div>
           <p className="text-xs text-slate-400 leading-relaxed">
             Sempre que você inicializar este projeto, ele abrirá obrigatoriamente na porta <strong>3004</strong>{' '}
-            (<code>http://localhost:3004</code>), sem riscos de alternar acidentalmente para a porta 3000 ou 3001.
+            (<code>http://localhost:3004</code>), sem riscos de alternar acidentalmente para outra porta.
           </p>
         </div>
 
@@ -151,7 +197,7 @@ export default function SettingsPage() {
                         : 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
                     }`}
                   >
-                    {isConfigured ? 'Conectado' : 'Aguardando Credenciais'}
+                    {isConfigured ? 'Credenciais Prontas' : 'Aguardando Credenciais'}
                   </span>
                 </h2>
                 <p className="text-xs text-slate-400">
@@ -188,40 +234,105 @@ export default function SettingsPage() {
               />
             </div>
 
-            <div className="flex items-center justify-between pt-2">
-              <span className="text-xs text-slate-400">
-                Você também pode configurar direto no arquivo <code>.env.local</code>.
-              </span>
+            <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
+              <button
+                type="button"
+                onClick={handleTestConnection}
+                disabled={isTesting}
+                className="px-4 py-2 rounded-xl text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition-colors flex items-center gap-1.5 disabled:opacity-50"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${isTesting ? 'animate-spin' : ''}`} />
+                <span>{isTesting ? 'Testando...' : 'Testar Conexão'}</span>
+              </button>
+
               <button
                 type="submit"
                 className="px-5 py-2 rounded-xl text-xs font-semibold bg-emerald-600 hover:bg-emerald-500 text-white shadow-md shadow-emerald-600/30 transition-all flex items-center gap-1.5"
               >
-                <CheckCircle className="w-3.5 h-3.5" />
+                <Check className="w-3.5 h-3.5" />
                 <span>Salvar Credenciais</span>
               </button>
             </div>
+
             {saveSuccess && (
               <p className="text-xs text-emerald-400 font-medium animate-fade-in">
-                ✓ Credenciais salvas localmente!
+                ✓ Credenciais salvas com sucesso!
               </p>
             )}
+
+            {testResult && (
+              <div
+                className={`p-3 rounded-xl text-xs font-medium border flex items-center gap-2 ${
+                  testResult.success
+                    ? 'bg-emerald-500/10 text-emerald-300 border-emerald-500/20'
+                    : 'bg-amber-500/10 text-amber-300 border-amber-500/20'
+                }`}
+              >
+                {testResult.success ? (
+                  <CheckCircle className="w-4 h-4 text-emerald-400 shrink-0" />
+                ) : (
+                  <AlertCircle className="w-4 h-4 text-amber-400 shrink-0" />
+                )}
+                <span>{testResult.message}</span>
+              </div>
+            )}
           </form>
+
+          {/* Cloud Sync Actions */}
+          <div className="pt-4 border-t border-slate-800 flex flex-wrap items-center gap-3">
+            <button
+              onClick={handleSyncToSupabase}
+              disabled={isSyncing}
+              className="flex items-center gap-2 px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold shadow-md shadow-blue-600/30 transition-all disabled:opacity-50"
+            >
+              <Send className="w-3.5 h-3.5" />
+              <span>{isSyncing ? 'Enviando...' : 'Enviar Baralhos para Nuvem'}</span>
+            </button>
+
+            <button
+              onClick={handleSyncFromSupabase}
+              disabled={isSyncing}
+              className="flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-semibold transition-colors disabled:opacity-50"
+            >
+              <ArrowDownCircle className="w-3.5 h-3.5" />
+              <span>Baixar Dados da Nuvem</span>
+            </button>
+          </div>
+
+          {syncResult && (
+            <div
+              className={`p-3 rounded-xl text-xs font-medium border flex items-center gap-2 ${
+                syncResult.success
+                  ? 'bg-emerald-500/10 text-emerald-300 border-emerald-500/20'
+                  : 'bg-red-500/10 text-red-300 border-red-500/20'
+              }`}
+            >
+              {syncResult.success ? (
+                <CheckCircle className="w-4 h-4 text-emerald-400 shrink-0" />
+              ) : (
+                <AlertCircle className="w-4 h-4 text-red-400 shrink-0" />
+              )}
+              <span>{syncResult.message}</span>
+            </div>
+          )}
 
           {/* SQL Schema helper */}
           <div className="mt-4 p-4 rounded-2xl bg-slate-950/70 border border-slate-800 space-y-2">
             <h4 className="text-xs font-semibold text-slate-300 uppercase tracking-wider">
-              Schema SQL Sugerido para o Supabase (SQL Editor)
+              Script SQL para Criar as Tabelas no Supabase (SQL Editor)
             </h4>
-            <pre className="text-[11px] font-mono text-slate-400 overflow-x-auto p-3 bg-slate-900 rounded-xl border border-slate-800">
-{`create table decks (
+            <pre className="text-[11px] font-mono text-slate-400 overflow-x-auto p-3 bg-slate-900 rounded-xl border border-slate-800 select-all">
+{`-- 1. Criação da tabela de Baralhos
+create table if not exists decks (
   id text primary key,
   title text not null,
   description text,
-  color text,
+  color text default '#3b82f6',
   created_at timestamp with time zone default timezone('utc'::text, now()) not null
 );
 
-create table flashcards (
+-- 2. Criação da tabela de Flashcards
+create table if not exists flashcards (
   id text primary key,
   deck_id text references decks(id) on delete cascade,
   front text not null,
@@ -234,7 +345,21 @@ create table flashcards (
   ease_factor numeric default 2.5,
   due_date timestamp with time zone default timezone('utc'::text, now()),
   created_at timestamp with time zone default timezone('utc'::text, now()) not null
-);`}
+);
+
+-- 3. Habilita acesso público / anon para teste direto (ou configure RLS se preferir autenticação)
+alter table decks enable row level security;
+alter table flashcards enable row level security;
+
+create policy "Permitir leitura anonima" on decks for select using (true);
+create policy "Permitir insercao anonima" on decks for insert with check (true);
+create policy "Permitir update anonimo" on decks for update using (true);
+create policy "Permitir delete anonimo" on decks for delete using (true);
+
+create policy "Permitir leitura flashcards" on flashcards for select using (true);
+create policy "Permitir insercao flashcards" on flashcards for insert with check (true);
+create policy "Permitir update flashcards" on flashcards for update using (true);
+create policy "Permitir delete flashcards" on flashcards for delete using (true);`}
             </pre>
           </div>
         </div>
@@ -267,7 +392,7 @@ create table flashcards (
               <RefreshCw className="w-5 h-5" />
             </div>
             <div>
-              <h2 className="text-lg font-bold text-white">Gerenciamento de Dados & Backup</h2>
+              <h2 className="text-lg font-bold text-white">Gerenciamento de Dados & Backup Local</h2>
               <p className="text-xs text-slate-400">
                 Exporte ou importe seus baralhos em formato JSON.
               </p>
