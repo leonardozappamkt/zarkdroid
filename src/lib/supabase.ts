@@ -64,6 +64,13 @@ export async function testSupabaseConnection(
     return { success: false, message: 'O campo NEXT_PUBLIC_SUPABASE_ANON_KEY está vazio.' };
   }
 
+  if (key.startsWith('sb_secret_')) {
+    return {
+      success: false,
+      message: 'Atenção: Você copiou a chave "service_role" (secreta). Use a chave pública "anon" (começa com sb_publishable_... ou eyJhbGci...).',
+    };
+  }
+
   const client = createClient(url, key);
 
   try {
@@ -75,10 +82,22 @@ export async function testSupabaseConnection(
           message: 'Conectado ao Supabase com sucesso! (Porém a tabela "decks" ainda precisa ser criada com o script SQL abaixo).',
         };
       }
+      if (error.message && error.message.includes('Forbidden use of secret API key')) {
+        return {
+          success: false,
+          message: 'Você colou a chave "service_role" (secreta). Por segurança, o Supabase exige a chave pública "anon" (ou "publishable").',
+        };
+      }
       return { success: false, message: `Erro ao comunicar com o Supabase: ${error.message}` };
     }
     return { success: true, message: 'Conexão validada com sucesso! As tabelas já existem e estão prontas.' };
   } catch (err: any) {
+    if (err.message && err.message.includes('Forbidden use of secret API key')) {
+      return {
+        success: false,
+        message: 'Você colou a chave "service_role" (secreta). No navegador é necessário usar a chave pública "anon" (ou "publishable").',
+      };
+    }
     return { success: false, message: `Falha na requisição: ${err.message || 'Verifique sua conexão'}` };
   }
 }
