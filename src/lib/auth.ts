@@ -13,7 +13,14 @@ const NOT_CONFIGURED: AuthResult = {
 };
 
 function translate(message: string): string {
+  // Keep the original message available for debugging; the UI only shows the friendly text.
+  console.error('[auth]', message);
   const m = message.toLowerCase();
+  if (m.includes('error sending') && m.includes('email')) {
+    return 'Não foi possível enviar o e-mail agora. Tente novamente em alguns minutos.';
+  }
+  if (m.includes('signups not allowed')) return 'Novos cadastros estão desativados no momento.';
+  if (m.includes('invalid') && m.includes('email')) return 'Informe um e-mail válido.';
   if (m.includes('invalid login credentials')) return 'E-mail ou senha incorretos.';
   if (m.includes('email not confirmed')) return 'Confirme seu e-mail antes de entrar. Verifique sua caixa de entrada.';
   if (m.includes('already registered')) return 'Este e-mail já tem uma conta. Tente entrar.';
