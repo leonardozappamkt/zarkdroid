@@ -1,5 +1,5 @@
 import { Deck, Flashcard } from '@/types';
-import { getSupabaseClient } from './supabase';
+import { getSupabaseClient, getSyncClient } from './supabase';
 
 const INITIAL_DECKS: Deck[] = [
   {
@@ -355,6 +355,30 @@ export const storage = {
     }
   },
 
+  /** Removes this device's local data (used on sign-out so accounts never mix). */
+  clearLocal(): void {
+    if (typeof window === 'undefined') return;
+    localStorage.removeItem(STORAGE_KEY_DECKS);
+    localStorage.removeItem(STORAGE_KEY_CARDS);
+  },
+
+  /** Cloud is the source of truth after login: pull it, or seed it from local data when empty. */
+  async syncOnLogin(): Promise<void> {
+    const client = getSupabaseClient();
+    if (!client) return;
+    try {
+      const { data, error } = await client.from('decks').select('id').limit(1);
+      if (error) throw error;
+      if (data && data.length > 0) {
+        await this.syncFromSupabase();
+      } else {
+        await this.syncToSupabase();
+      }
+    } catch (e) {
+      console.warn('Initial sync failed, continuing with local data:', e);
+    }
+  },
+
   updateCard(card: Flashcard): void {
     const cards = this.getCards();
     const index = cards.findIndex((c) => c.id === card.id);
@@ -362,7 +386,7 @@ export const storage = {
       cards[index] = card;
       this.saveCards(cards);
 
-      const client = getSupabaseClient();
+      const client = getSyncClient();
       if (client) {
         Promise.resolve(
           client.from('flashcards').upsert({
@@ -395,7 +419,7 @@ export const storage = {
     cards.push(newCard);
     this.saveCards(cards);
 
-    const client = getSupabaseClient();
+    const client = getSyncClient();
     if (client) {
       Promise.resolve(
         client.from('flashcards').insert({
@@ -422,7 +446,7 @@ export const storage = {
     const cards = this.getCards().filter((c) => c.id !== cardId);
     this.saveCards(cards);
 
-    const client = getSupabaseClient();
+    const client = getSyncClient();
     if (client) {
       Promise.resolve(
         client.from('flashcards').delete().eq('id', cardId)
@@ -448,7 +472,7 @@ export const storage = {
     decks.push(newDeck);
     this.saveDecks(decks);
 
-    const client = getSupabaseClient();
+    const client = getSyncClient();
     if (client) {
       Promise.resolve(
         client.from('decks').insert({
@@ -470,7 +494,7 @@ export const storage = {
     this.saveDecks(decks);
     this.saveCards(cards);
 
-    const client = getSupabaseClient();
+    const client = getSyncClient();
     if (client) {
       Promise.resolve(
         client.from('decks').delete().eq('id', deckId)

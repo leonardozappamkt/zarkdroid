@@ -207,9 +207,14 @@ export default function HomePage() {
       <footer className="border-t border-line">
         <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-6 text-xs text-mute sm:px-6">
           <span>Zarkdroid</span>
-          <Link href="/download" className="hover:text-ink">
-            Baixar app Android
-          </Link>
+          <nav className="flex gap-4">
+            <Link href="/privacy" className="hover:text-ink">
+              Privacidade
+            </Link>
+            <Link href="/download" className="hover:text-ink">
+              Baixar app Android
+            </Link>
+          </nav>
         </div>
       </footer>
 

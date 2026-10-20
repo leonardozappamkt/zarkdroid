@@ -134,11 +134,32 @@ export default function StudyPage({ params }: StudyPageProps) {
   ];
   const progressPercentage = queue.length > 0 ? Math.round((currentIndex / queue.length) * 100) : 100;
 
-  const ratings: { key: ReviewRating; label: string; hotkey: string }[] = [
-    { key: 'again', label: 'Errei', hotkey: '1' },
-    { key: 'hard', label: 'Difícil', hotkey: '2' },
-    { key: 'good', label: 'Bom', hotkey: '3' },
-    { key: 'easy', label: 'Fácil', hotkey: '4' },
+  // Rating colors are the only accent in the UI, so the answer buttons read at a glance.
+  const ratings: { key: ReviewRating; label: string; hotkey: string; style: string }[] = [
+    {
+      key: 'again',
+      label: 'Errei',
+      hotkey: '1',
+      style: 'border-red-500/30 bg-red-500/10 text-red-600 hover:bg-red-500/20 dark:text-red-400',
+    },
+    {
+      key: 'hard',
+      label: 'Difícil',
+      hotkey: '2',
+      style: 'border-amber-500/30 bg-amber-500/10 text-amber-600 hover:bg-amber-500/20 dark:text-amber-400',
+    },
+    {
+      key: 'good',
+      label: 'Bom',
+      hotkey: '3',
+      style: 'border-emerald-500/40 bg-emerald-500/15 text-emerald-600 hover:bg-emerald-500/25 dark:text-emerald-400',
+    },
+    {
+      key: 'easy',
+      label: 'Fácil',
+      hotkey: '4',
+      style: 'border-sky-500/30 bg-sky-500/10 text-sky-600 hover:bg-sky-500/20 dark:text-sky-400',
+    },
   ];
 
   return (
@@ -245,11 +266,7 @@ export default function StudyPage({ params }: StudyPageProps) {
                   <button
                     key={r.key}
                     onClick={() => handleRating(r.key)}
-                    className={`flex flex-col items-center rounded-2xl border px-2 py-2.5 transition-colors ${
-                      r.key === 'good'
-                        ? 'border-ink bg-ink text-paper hover:opacity-85'
-                        : 'border-line hover:border-ink'
-                    }`}
+                    className={`flex flex-col items-center rounded-2xl border px-2 py-2.5 transition-colors ${r.style}`}
                   >
                     <span className="text-sm font-medium">
                       {r.label} <kbd className="hidden font-mono text-[10px] opacity-50 sm:inline">{r.hotkey}</kbd>

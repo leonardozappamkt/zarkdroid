@@ -3,7 +3,8 @@
 import React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Plus } from 'lucide-react';
+import { Plus, LogOut } from 'lucide-react';
+import { auth, useSession } from '@/lib/auth';
 
 interface NavbarProps {
   onOpenNewDeck?: () => void;
@@ -29,6 +30,8 @@ export function Logo({ className = '' }: { className?: string }) {
 
 export default function Navbar({ onOpenNewDeck, onOpenNewCard }: NavbarProps) {
   const pathname = usePathname();
+  const { session, loading } = useSession();
+  const authAvailable = auth.isAvailable();
 
   return (
     <header className="sticky top-0 z-40 w-full border-b border-line bg-paper/80 backdrop-blur-md">
@@ -57,6 +60,22 @@ export default function Navbar({ onOpenNewDeck, onOpenNewCard }: NavbarProps) {
         </div>
 
         <div className="flex items-center gap-2">
+          {authAvailable && !loading && (
+            session ? (
+              <button
+                onClick={() => auth.signOut()}
+                title={session.user.email}
+                className="btn-ghost"
+              >
+                <LogOut className="h-4 w-4" />
+                <span className="hidden sm:inline">Sair</span>
+              </button>
+            ) : (
+              <Link href="/login" className="btn-ghost">
+                Entrar
+              </Link>
+            )
+          )}
           {onOpenNewCard && (
             <button onClick={onOpenNewCard} className="btn-outline">
               <Plus className="h-4 w-4" />

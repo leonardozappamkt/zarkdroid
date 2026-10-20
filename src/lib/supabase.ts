@@ -1,4 +1,4 @@
-import { createClient } from '@supabase/supabase-js';
+import { createClient, SupabaseClient } from '@supabase/supabase-js';
 
 export function getSupabaseCredentials() {
   let url = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
@@ -26,6 +26,10 @@ export const isSupabaseConfigured = () => {
   );
 };
 
+let cachedClient: SupabaseClient | null = null;
+let cachedKey = '';
+let signedIn = false;
+
 export const getSupabaseClient = (customUrl?: string, customKey?: string) => {
   const resolvedUrl = (customUrl || getSupabaseCredentials().url).trim();
   const resolvedKey = (customKey || getSupabaseCredentials().key).trim();
@@ -33,7 +37,27 @@ export const getSupabaseClient = (customUrl?: string, customKey?: string) => {
   if (!resolvedUrl || !resolvedKey || resolvedUrl.includes('placeholder') || !resolvedUrl.startsWith('https://')) {
     return null;
   }
-  return createClient(resolvedUrl, resolvedKey);
+
+  // Single shared client so the auth session is not duplicated across calls.
+  const id = `${resolvedUrl}|${resolvedKey}`;
+  if (!cachedClient || cachedKey !== id) {
+    cachedClient = createClient(resolvedUrl, resolvedKey);
+    cachedKey = id;
+    signedIn = false;
+    cachedClient.auth.getSession().then(({ data }) => {
+      signedIn = !!data.session;
+    });
+    cachedClient.auth.onAuthStateChange((_event, session) => {
+      signedIn = !!session;
+    });
+  }
+  return cachedClient;
+};
+
+/** Client for cloud sync: only available while a user is signed in. */
+export const getSyncClient = () => {
+  const client = getSupabaseClient();
+  return client && signedIn ? client : null;
 };
 
 export async function testSupabaseConnection(
