@@ -2,20 +2,7 @@
 
 import React, { useEffect, useState, use } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
-import {
-  ArrowLeft,
-  Plus,
-  Play,
-  Trash2,
-  Calendar,
-  Layers,
-  Sparkles,
-  Search,
-  BookOpen,
-  Clock,
-  RotateCcw
-} from 'lucide-react';
+import { ArrowLeft, Plus, Play, Trash2, Search } from 'lucide-react';
 import Navbar from '@/components/Navbar';
 import CreateCardModal from '@/components/CreateCardModal';
 import { Deck, Flashcard } from '@/types';
@@ -26,7 +13,6 @@ interface DeckDetailPageProps {
 }
 
 export default function DeckDetailPage({ params }: DeckDetailPageProps) {
-  const router = useRouter();
   const resolvedParams = use(params);
   const deckId = resolvedParams.deckId;
 
@@ -63,163 +49,104 @@ export default function DeckDetailPage({ params }: DeckDetailPageProps) {
 
   if (!deck) {
     return (
-      <div className="min-h-screen bg-slate-950 flex items-center justify-center text-slate-400">
-        Carregando informações do baralho...
+      <div className="flex min-h-screen items-center justify-center text-sm text-mute">
+        Carregando…
       </div>
     );
   }
 
+  const filter = searchFilter.toLowerCase();
   const filteredCards = cards.filter(
-    (c) =>
-      c.front.toLowerCase().includes(searchFilter.toLowerCase()) ||
-      c.back.toLowerCase().includes(searchFilter.toLowerCase())
+    (c) => c.front.toLowerCase().includes(filter) || c.back.toLowerCase().includes(filter)
   );
 
+  const stateLabel: Record<Flashcard['state'], string> = {
+    new: 'novo',
+    learning: 'aprendendo',
+    review: 'revisão',
+  };
+
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col">
+    <div className="flex min-h-screen flex-col">
       <Navbar onOpenNewCard={() => setIsNewCardOpen(true)} />
 
-      <main className="flex-1 max-w-6xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
-        {/* Navigation & Header */}
-        <div className="flex items-center gap-2 text-sm text-slate-400">
-          <Link href="/" className="hover:text-white transition-colors flex items-center gap-1">
-            <ArrowLeft className="w-4 h-4" />
-            <span>Voltar ao Painel</span>
-          </Link>
-          <span>/</span>
-          <span className="text-slate-200 font-medium">{deck.title}</span>
-        </div>
+      <main className="mx-auto w-full max-w-5xl flex-1 space-y-10 px-4 py-10 sm:px-6">
+        <Link href="/" className="inline-flex items-center gap-1.5 text-sm text-mute hover:text-ink">
+          <ArrowLeft className="h-4 w-4" />
+          Baralhos
+        </Link>
 
-        {/* Deck Header Banner */}
-        <div className="p-6 sm:p-8 rounded-3xl bg-slate-900 border border-slate-800 flex flex-col md:flex-row md:items-center justify-between gap-6">
+        <section className="flex flex-col gap-6 sm:flex-row sm:items-end sm:justify-between">
           <div className="space-y-2">
-            <div className="flex items-center gap-3">
-              <div
-                className="w-4 h-4 rounded-full"
-                style={{ backgroundColor: deck.color || '#3b82f6' }}
-              />
-              <h1 className="text-2xl sm:text-3xl font-extrabold text-white">{deck.title}</h1>
-            </div>
-            <p className="text-slate-400 text-sm max-w-xl">
+            <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">{deck.title}</h1>
+            <p className="max-w-xl text-sm text-mute">
               {deck.description || 'Baralho de estudos e repetição espaçada.'}
             </p>
-            <div className="flex items-center gap-4 pt-2 text-xs text-slate-400">
-              <span className="flex items-center gap-1.5">
-                <Layers className="w-4 h-4 text-blue-400" />
-                <strong className="text-white">{cards.length}</strong> cards no total
-              </span>
-              <span className="flex items-center gap-1.5">
-                <Clock className="w-4 h-4 text-emerald-400" />
-                <strong className="text-white">{deck.due_count || 0}</strong> para revisar
-              </span>
-            </div>
+            <p className="font-mono text-xs text-mute">
+              {cards.length} cards · {deck.due_count || 0} para revisar
+            </p>
           </div>
 
-          <div className="flex flex-wrap items-center gap-3">
-            <Link
-              href={`/study/${deck.id}`}
-              className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-semibold text-sm shadow-lg shadow-blue-600/30 transition-all"
-            >
-              <Play className="w-4 h-4 fill-white" />
-              <span>Estudar Baralho</span>
-            </Link>
-            <button
-              onClick={() => setIsNewCardOpen(true)}
-              className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-sm font-semibold transition-colors"
-            >
-              <Plus className="w-4 h-4" />
-              <span>Adicionar Card</span>
+          <div className="flex gap-2">
+            <button onClick={() => setIsNewCardOpen(true)} className="btn-outline">
+              <Plus className="h-4 w-4" />
+              Card
             </button>
+            <Link href={`/study/${deck.id}`} className="btn-primary">
+              <Play className="h-4 w-4 fill-current" />
+              Estudar
+            </Link>
           </div>
-        </div>
+        </section>
 
-        {/* Search & List of Cards */}
-        <div className="flex items-center justify-between gap-4 pt-4">
-          <h2 className="text-lg font-bold text-white flex items-center gap-2">
-            <span>Flashcards</span>
-            <span className="text-xs px-2 py-0.5 rounded-full bg-slate-800 text-slate-400">
-              {filteredCards.length}
-            </span>
-          </h2>
-
-          <div className="relative w-64">
-            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
-            <input
-              type="text"
-              placeholder="Filtrar cartões..."
-              value={searchFilter}
-              onChange={(e) => setSearchFilter(e.target.value)}
-              className="w-full pl-9 pr-4 py-1.5 rounded-xl bg-slate-900 border border-slate-800 text-xs text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
+        <section className="space-y-4">
+          <div className="flex items-center justify-between gap-4">
+            <h2 className="text-lg font-semibold">
+              Cards <span className="ml-1 font-mono text-sm font-normal text-mute">{filteredCards.length}</span>
+            </h2>
+            <div className="relative w-full max-w-[16rem]">
+              <Search className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-mute" />
+              <input
+                type="text"
+                placeholder="Filtrar"
+                value={searchFilter}
+                onChange={(e) => setSearchFilter(e.target.value)}
+                className="field rounded-full py-2 pl-10"
+              />
+            </div>
           </div>
-        </div>
 
-        {/* Cards Table / List */}
-        <div className="space-y-3">
-          {filteredCards.map((card, idx) => (
-            <div
-              key={card.id}
-              className="p-5 rounded-2xl bg-slate-900/60 border border-slate-800 hover:border-slate-700 transition-all flex flex-col md:flex-row md:items-center justify-between gap-4"
-            >
-              <div className="flex-1 space-y-2">
-                <div className="flex items-center gap-2">
-                  <span className="text-xs font-mono text-slate-500">#{idx + 1}</span>
-                  <span
-                    className={`text-[10px] px-2 py-0.5 rounded-md font-semibold uppercase tracking-wider ${
-                      card.state === 'new'
-                        ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20'
-                        : card.state === 'learning'
-                        ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
-                        : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
-                    }`}
-                  >
-                    {card.state}
+          <ul className="card divide-y divide-line overflow-hidden">
+            {filteredCards.map((card) => (
+              <li key={card.id} className="flex items-start justify-between gap-4 p-4 sm:p-5">
+                <div className="grid min-w-0 flex-1 gap-1 sm:grid-cols-2 sm:gap-6">
+                  <p className="font-medium">{card.front}</p>
+                  <div>
+                    <p className="line-clamp-2 text-sm text-mute">{card.back}</p>
+                    {card.extra && <p className="mt-1 text-xs italic text-mute">{card.extra}</p>}
+                  </div>
+                </div>
+                <div className="flex shrink-0 items-center gap-3">
+                  <span className="hidden rounded-full border border-line px-2 py-0.5 text-[11px] text-mute sm:inline">
+                    {stateLabel[card.state]}
+                    {card.interval > 0 && ` · ${card.interval}d`}
                   </span>
-                  {card.interval > 0 && (
-                    <span className="text-[11px] text-slate-400">
-                      Intervalo: {card.interval} dia(s) (Fator: {card.ease_factor}x)
-                    </span>
-                  )}
+                  <button
+                    onClick={() => handleDeleteCard(card.id)}
+                    title="Excluir card"
+                    className="rounded-full p-2 text-mute hover:bg-soft hover:text-ink"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
                 </div>
+              </li>
+            ))}
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-1">
-                  <div>
-                    <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
-                      Frente
-                    </p>
-                    <p className="text-sm font-medium text-white mt-0.5">{card.front}</p>
-                  </div>
-                  <div>
-                    <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
-                      Verso
-                    </p>
-                    <p className="text-sm text-slate-300 mt-0.5 line-clamp-2">{card.back}</p>
-                  </div>
-                </div>
-
-                {card.extra && (
-                  <p className="text-xs text-slate-400 italic">💡 {card.extra}</p>
-                )}
-              </div>
-
-              <div className="flex items-center gap-2 self-end md:self-center">
-                <button
-                  onClick={() => handleDeleteCard(card.id)}
-                  title="Excluir card"
-                  className="p-2 rounded-xl text-slate-500 hover:text-red-400 hover:bg-slate-800 transition-colors"
-                >
-                  <Trash2 className="w-4 h-4" />
-                </button>
-              </div>
-            </div>
-          ))}
-
-          {filteredCards.length === 0 && (
-            <div className="text-center py-12 rounded-2xl border border-dashed border-slate-800 p-8 text-slate-400 text-sm">
-              Nenhum flashcard encontrado neste baralho.
-            </div>
-          )}
-        </div>
+            {filteredCards.length === 0 && (
+              <li className="py-14 text-center text-sm text-mute">Nenhum card encontrado.</li>
+            )}
+          </ul>
+        </section>
       </main>
 
       <CreateCardModal

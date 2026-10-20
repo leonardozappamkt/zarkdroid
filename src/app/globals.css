@@ -2,51 +2,86 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Monochrome tokens (space-separated RGB so Tailwind alpha works) */
 :root {
-  --background: #0f172a;
-  --foreground: #f8fafc;
+  --paper: 255 255 255;
+  --ink: 10 10 10;
+  --mute: 115 115 115;
+  --line: 229 229 229;
+  --soft: 246 246 246;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --paper: 10 10 10;
+    --ink: 250 250 250;
+    --mute: 163 163 163;
+    --line: 38 38 38;
+    --soft: 20 20 20;
+  }
+}
+
+:root[data-theme="dark"] {
+  --paper: 10 10 10;
+  --ink: 250 250 250;
+  --mute: 163 163 163;
+  --line: 38 38 38;
+  --soft: 20 20 20;
+}
+
+html {
+  color-scheme: light dark;
 }
 
 body {
-  color: var(--foreground);
-  background: var(--background);
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  background: rgb(var(--paper));
+  color: rgb(var(--ink));
   min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+  font-feature-settings: "cv11", "ss01";
 }
 
-/* Perspective for 3D flashcard flip */
-.perspective-1000 {
-  perspective: 1000px;
+::selection {
+  background: rgb(var(--ink));
+  color: rgb(var(--paper));
 }
 
-.transform-style-3d {
-  transform-style: preserve-3d;
+:focus-visible {
+  outline: 2px solid rgb(var(--ink));
+  outline-offset: 2px;
 }
 
-.backface-hidden {
-  backface-visibility: hidden;
-  -webkit-backface-visibility: hidden;
+/* Reusable primitives */
+@layer components {
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-full px-4 py-2 text-sm font-medium transition-opacity disabled:opacity-40 disabled:pointer-events-none;
+  }
+  .btn-primary {
+    @apply btn bg-ink text-paper hover:opacity-85;
+  }
+  .btn-outline {
+    @apply btn border border-line text-ink hover:border-ink;
+  }
+  .btn-ghost {
+    @apply btn text-mute hover:text-ink;
+  }
+  .field {
+    @apply w-full rounded-xl border border-line bg-paper px-3.5 py-2.5 text-sm text-ink placeholder:text-mute focus:border-ink focus:outline-none;
+  }
+  .label {
+    @apply mb-1.5 block text-xs font-medium uppercase tracking-wider text-mute;
+  }
+  .card {
+    @apply rounded-2xl border border-line bg-paper;
+  }
 }
 
-.rotate-y-180 {
-  transform: rotateY(180deg);
-}
-
-/* Custom scrollbars */
+/* Scrollbars */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
 }
-
-::-webkit-scrollbar-track {
-  background: #1e293b;
-}
-
 ::-webkit-scrollbar-thumb {
-  background: #475569;
+  background: rgb(var(--line));
   border-radius: 9999px;
-}
-
-::-webkit-scrollbar-thumb:hover {
-  background: #64748b;
 }

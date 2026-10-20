@@ -2,22 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
-import {
-  ArrowLeft,
-  Database,
-  Server,
-  Cloud,
-  Download,
-  Upload,
-  CheckCircle,
-  AlertCircle,
-  RefreshCw,
-  Flame,
-  Globe,
-  Send,
-  ArrowDownCircle,
-  Check
-} from 'lucide-react';
+import { ArrowLeft, Download, Upload, CheckCircle, AlertCircle, RefreshCw, Send, ArrowDownCircle, Check } from 'lucide-react';
 import Navbar from '@/components/Navbar';
 import { storage } from '@/lib/storage';
 import { isSupabaseConfigured, testSupabaseConnection } from '@/lib/supabase';
@@ -145,199 +130,112 @@ export default function SettingsPage() {
     }
   };
 
+  const Notice = ({ result }: { result: { success?: boolean; message?: string } }) => (
+    <div className="flex items-start gap-2 rounded-xl border border-line bg-soft p-3 text-sm">
+      {result.success ? (
+        <CheckCircle className="mt-0.5 h-4 w-4 shrink-0" />
+      ) : (
+        <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+      )}
+      <span>{result.message}</span>
+    </div>
+  );
+
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col">
+    <div className="flex min-h-screen flex-col">
       <Navbar />
 
-      <main className="flex-1 max-w-4xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
-        {/* Back Link */}
-        <div className="flex items-center gap-2 text-sm text-slate-400">
-          <Link href="/" className="hover:text-white transition-colors flex items-center gap-1">
-            <ArrowLeft className="w-4 h-4" />
-            <span>Voltar ao Painel</span>
+      <main className="mx-auto w-full max-w-3xl flex-1 space-y-10 px-4 py-10 sm:px-6">
+        <div className="space-y-4">
+          <Link href="/" className="inline-flex items-center gap-1.5 text-sm text-mute hover:text-ink">
+            <ArrowLeft className="h-4 w-4" />
+            Baralhos
           </Link>
-          <span>/</span>
-          <span className="text-slate-200 font-medium">Configurações & Integrações</span>
+          <h1 className="text-3xl font-semibold tracking-tight">Configurações</h1>
         </div>
 
-        {/* Port 3004 Info Card */}
-        <div className="p-6 rounded-3xl bg-slate-900 border border-slate-800 space-y-3">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-blue-500/10 flex items-center justify-center text-blue-400">
-              <Server className="w-5 h-5" />
-            </div>
+        {/* Supabase */}
+        <section className="card space-y-6 p-6">
+          <div className="flex items-start justify-between gap-4">
             <div>
-              <h2 className="text-lg font-bold text-white flex items-center gap-2">
-                <span>Porta Fixa: localhost:3004</span>
-                <span className="px-2 py-0.5 text-xs rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-mono">
-                  Ativa
-                </span>
-              </h2>
-              <p className="text-xs text-slate-400">
-                O script <code>npm run dev</code> está permanentemente configurado com <code>next dev -p 3004</code>.
+              <h2 className="text-lg font-semibold tracking-tight">Sincronização na nuvem</h2>
+              <p className="mt-1 text-sm text-mute">
+                Use o Supabase para levar seus baralhos entre dispositivos. Sem isso, tudo fica salvo só neste aparelho.
               </p>
             </div>
-          </div>
-          <p className="text-xs text-slate-400 leading-relaxed">
-            Sempre que você inicializar este projeto, ele abrirá obrigatoriamente na porta <strong>3004</strong>{' '}
-            (<code>http://localhost:3004</code>), sem riscos de alternar acidentalmente para outra porta.
-          </p>
-        </div>
-
-        {/* Supabase Connection */}
-        <div className="p-6 rounded-3xl bg-slate-900 border border-slate-800 space-y-6">
-          <div className="flex items-start justify-between gap-4">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-emerald-500/10 flex items-center justify-center text-emerald-400">
-                <Database className="w-5 h-5" />
-              </div>
-              <div>
-                <h2 className="text-lg font-bold text-white flex items-center gap-2">
-                  <span>Conexão Supabase</span>
-                  <span
-                    className={`px-2 py-0.5 text-xs rounded-full font-medium ${
-                      isConfigured
-                        ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
-                        : 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
-                    }`}
-                  >
-                    {isConfigured ? 'Credenciais Prontas' : 'Aguardando Credenciais'}
-                  </span>
-                </h2>
-                <p className="text-xs text-slate-400">
-                  Sincronização em nuvem para seus baralhos e revisões em múltiplos dispositivos.
-                </p>
-              </div>
-            </div>
+            <span className="shrink-0 rounded-full border border-line px-2.5 py-1 text-xs text-mute">
+              {isConfigured ? 'Configurado' : 'Não configurado'}
+            </span>
           </div>
 
           <form onSubmit={handleSaveSupabase} className="space-y-4">
             <div>
-              <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
-                NEXT_PUBLIC_SUPABASE_URL
-              </label>
+              <label className="label">Project URL</label>
               <input
                 type="text"
                 placeholder="https://xyzcompany.supabase.co"
                 value={supabaseUrl}
                 onChange={(e) => setSupabaseUrl(e.target.value)}
-                className="w-full px-3.5 py-2.5 rounded-xl bg-slate-800/80 border border-slate-700 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 text-sm font-mono"
+                className="field font-mono"
               />
-              <p className="text-[11px] text-slate-400 mt-1">
-                📌 A URL do projeto deve começar com <code className="text-emerald-400">https://</code> e terminar com <code className="text-emerald-400">.supabase.co</code> (ex: <em>https://seu-id.supabase.co</em>).
+              <p className="mt-1.5 text-xs text-mute">
+                Começa com <code>https://</code> e termina com <code>.supabase.co</code>.
               </p>
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
-                NEXT_PUBLIC_SUPABASE_ANON_KEY
-              </label>
+              <label className="label">Anon / publishable key</label>
               <input
                 type="password"
-                placeholder="sb_publishable_... ou eyJhbGciOiJIUzI1NiIsIn..."
+                placeholder="sb_publishable_… ou eyJhbG…"
                 value={supabaseAnonKey}
                 onChange={(e) => setSupabaseAnonKey(e.target.value)}
-                className="w-full px-3.5 py-2.5 rounded-xl bg-slate-800/80 border border-slate-700 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 text-sm font-mono"
+                className="field font-mono"
               />
-              <p className="text-[11px] text-slate-400 mt-1">
-                🔑 Cole aqui a sua chave pública (começa com <code className="text-blue-400">sb_publishable_...</code> ou <code className="text-blue-400">eyJhbG...</code>).
+              <p className="mt-1.5 text-xs text-mute">
+                Use a chave pública. Nunca cole a chave <code>service_role</code>.
               </p>
             </div>
 
-            <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
-              <button
-                type="button"
-                onClick={handleTestConnection}
-                disabled={isTesting}
-                className="px-4 py-2 rounded-xl text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition-colors flex items-center gap-1.5 disabled:opacity-50"
-              >
-                <RefreshCw className={`w-3.5 h-3.5 ${isTesting ? 'animate-spin' : ''}`} />
-                <span>{isTesting ? 'Testando...' : 'Testar Conexão'}</span>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <button type="button" onClick={handleTestConnection} disabled={isTesting} className="btn-outline">
+                <RefreshCw className={`h-4 w-4 ${isTesting ? 'animate-spin' : ''}`} />
+                {isTesting ? 'Testando…' : 'Testar conexão'}
               </button>
-
-              <button
-                type="submit"
-                className="px-5 py-2 rounded-xl text-xs font-semibold bg-emerald-600 hover:bg-emerald-500 text-white shadow-md shadow-emerald-600/30 transition-all flex items-center gap-1.5"
-              >
-                <Check className="w-3.5 h-3.5" />
-                <span>Salvar Credenciais</span>
+              <button type="submit" className="btn-primary">
+                <Check className="h-4 w-4" />
+                Salvar
               </button>
             </div>
 
-            {saveSuccess && (
-              <p className="text-xs text-emerald-400 font-medium animate-fade-in">
-                ✓ Credenciais salvas com sucesso!
-              </p>
-            )}
-
-            {testResult && (
-              <div
-                className={`p-3 rounded-xl text-xs font-medium border flex items-center gap-2 ${
-                  testResult.success
-                    ? 'bg-emerald-500/10 text-emerald-300 border-emerald-500/20'
-                    : 'bg-amber-500/10 text-amber-300 border-amber-500/20'
-                }`}
-              >
-                {testResult.success ? (
-                  <CheckCircle className="w-4 h-4 text-emerald-400 shrink-0" />
-                ) : (
-                  <AlertCircle className="w-4 h-4 text-amber-400 shrink-0" />
-                )}
-                <span>{testResult.message}</span>
-              </div>
-            )}
+            {saveSuccess && <p className="text-sm text-mute">Credenciais salvas.</p>}
+            {testResult && <Notice result={testResult} />}
           </form>
 
-          {/* Cloud Sync Actions */}
-          <div className="pt-4 border-t border-slate-800 flex flex-wrap items-center gap-3">
-            <button
-              onClick={handleSyncToSupabase}
-              disabled={isSyncing}
-              className="flex items-center gap-2 px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold shadow-md shadow-blue-600/30 transition-all disabled:opacity-50"
-            >
-              <Send className="w-3.5 h-3.5" />
-              <span>{isSyncing ? 'Enviando...' : 'Enviar Baralhos para Nuvem'}</span>
+          <div className="flex flex-wrap items-center gap-2 border-t border-line pt-6">
+            <button onClick={handleSyncToSupabase} disabled={isSyncing} className="btn-primary">
+              <Send className="h-4 w-4" />
+              {isSyncing ? 'Sincronizando…' : 'Enviar para a nuvem'}
             </button>
-
-            <button
-              onClick={handleSyncFromSupabase}
-              disabled={isSyncing}
-              className="flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-semibold transition-colors disabled:opacity-50"
-            >
-              <ArrowDownCircle className="w-3.5 h-3.5" />
-              <span>Baixar Dados da Nuvem</span>
+            <button onClick={handleSyncFromSupabase} disabled={isSyncing} className="btn-outline">
+              <ArrowDownCircle className="h-4 w-4" />
+              Baixar da nuvem
             </button>
           </div>
 
-          {syncResult && (
-            <div
-              className={`p-3 rounded-xl text-xs font-medium border flex items-center gap-2 ${
-                syncResult.success
-                  ? 'bg-emerald-500/10 text-emerald-300 border-emerald-500/20'
-                  : 'bg-red-500/10 text-red-300 border-red-500/20'
-              }`}
-            >
-              {syncResult.success ? (
-                <CheckCircle className="w-4 h-4 text-emerald-400 shrink-0" />
-              ) : (
-                <AlertCircle className="w-4 h-4 text-red-400 shrink-0" />
-              )}
-              <span>{syncResult.message}</span>
-            </div>
-          )}
+          {syncResult && <Notice result={syncResult} />}
 
-          {/* SQL Schema helper */}
-          <div className="mt-4 p-4 rounded-2xl bg-slate-950/70 border border-slate-800 space-y-2">
-            <h4 className="text-xs font-semibold text-slate-300 uppercase tracking-wider">
-              Script SQL para Criar as Tabelas no Supabase (SQL Editor)
-            </h4>
-            <pre className="text-[11px] font-mono text-slate-400 overflow-x-auto p-3 bg-slate-900 rounded-xl border border-slate-800 select-all">
+          <details className="group rounded-xl border border-line">
+            <summary className="cursor-pointer select-none px-4 py-3 text-sm font-medium">
+              SQL para criar as tabelas
+            </summary>
+            <pre className="select-all overflow-x-auto border-t border-line bg-soft p-4 font-mono text-[11px] leading-relaxed text-mute">
 {`-- 1. Criação da tabela de Baralhos
 create table if not exists decks (
   id text primary key,
   title text not null,
   description text,
-  color text default '#3b82f6',
+  color text default '#0a0a0a',
   created_at timestamp with time zone default timezone('utc'::text, now()) not null
 );
 
@@ -371,73 +269,32 @@ create policy "Permitir insercao flashcards" on flashcards for insert with check
 create policy "Permitir update flashcards" on flashcards for update using (true);
 create policy "Permitir delete flashcards" on flashcards for delete using (true);`}
             </pre>
-          </div>
-        </div>
+          </details>
+        </section>
 
-        {/* Vercel Deploy Guide */}
-        <div className="p-6 rounded-3xl bg-slate-900 border border-slate-800 space-y-4">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-purple-500/10 flex items-center justify-center text-purple-400">
-              <Cloud className="w-5 h-5" />
-            </div>
-            <div>
-              <h2 className="text-lg font-bold text-white">Deploy na Vercel</h2>
-              <p className="text-xs text-slate-400">
-                Como publicar o Zarkdroid na Vercel com um clique.
-              </p>
-            </div>
-          </div>
-          <ol className="text-xs text-slate-300 space-y-2 list-decimal list-inside leading-relaxed">
-            <li>Suba este repositório para o seu GitHub (ou use a CLI <code>vercel</code>).</li>
-            <li>No painel da Vercel, clique em <strong>Add New Project</strong> e importe o repositório.</li>
-            <li>Em <strong>Environment Variables</strong>, adicione as chaves <code>NEXT_PUBLIC_SUPABASE_URL</code> e <code>NEXT_PUBLIC_SUPABASE_ANON_KEY</code>.</li>
-            <li>Clique em <strong>Deploy</strong> e seu SaaS estará no ar com HTTPS e CDN global!</li>
-          </ol>
-        </div>
-
-        {/* Backup & Data Management */}
-        <div className="p-6 rounded-3xl bg-slate-900 border border-slate-800 space-y-4">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-blue-500/10 flex items-center justify-center text-blue-400">
-              <RefreshCw className="w-5 h-5" />
-            </div>
-            <div>
-              <h2 className="text-lg font-bold text-white">Gerenciamento de Dados & Backup Local</h2>
-              <p className="text-xs text-slate-400">
-                Exporte ou importe seus baralhos em formato JSON.
-              </p>
-            </div>
+        {/* Backup */}
+        <section className="card space-y-5 p-6">
+          <div>
+            <h2 className="text-lg font-semibold tracking-tight">Backup</h2>
+            <p className="mt-1 text-sm text-mute">Exporte ou importe seus baralhos em JSON.</p>
           </div>
 
-          <div className="flex flex-wrap items-center gap-3 pt-2">
-            <button
-              onClick={handleExportJSON}
-              className="flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-semibold transition-colors"
-            >
-              <Download className="w-3.5 h-3.5" />
-              <span>Exportar Backup (JSON)</span>
+          <div className="flex flex-wrap items-center gap-2">
+            <button onClick={handleExportJSON} className="btn-outline">
+              <Download className="h-4 w-4" />
+              Exportar
             </button>
-
-            <label className="flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-semibold cursor-pointer transition-colors">
-              <Upload className="w-3.5 h-3.5" />
-              <span>Importar Backup (JSON)</span>
-              <input
-                type="file"
-                accept=".json"
-                onChange={handleImportJSON}
-                className="hidden"
-              />
+            <label className="btn-outline cursor-pointer">
+              <Upload className="h-4 w-4" />
+              Importar
+              <input type="file" accept=".json" onChange={handleImportJSON} className="hidden" />
             </label>
-
-            <button
-              onClick={handleResetSampleData}
-              className="flex items-center gap-2 px-4 py-2 rounded-xl bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 text-xs font-semibold transition-colors ml-auto"
-            >
-              <RefreshCw className="w-3.5 h-3.5" />
-              <span>Restaurar Amostras</span>
+            <button onClick={handleResetSampleData} className="btn-ghost ml-auto">
+              <RefreshCw className="h-4 w-4" />
+              Restaurar exemplos
             </button>
           </div>
-        </div>
+        </section>
       </main>
     </div>
   );

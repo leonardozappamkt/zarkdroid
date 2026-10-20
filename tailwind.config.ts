@@ -9,15 +9,26 @@ export default {
   theme: {
     extend: {
       colors: {
-        background: "var(--background)",
-        foreground: "var(--foreground)",
-        ankiblue: {
-          50: '#eef6ff',
-          100: '#d9eaff',
-          500: '#2563eb',
-          600: '#1d4ed8',
-          700: '#1e40af',
+        paper: "rgb(var(--paper) / <alpha-value>)",
+        ink: "rgb(var(--ink) / <alpha-value>)",
+        mute: "rgb(var(--mute) / <alpha-value>)",
+        line: "rgb(var(--line) / <alpha-value>)",
+        soft: "rgb(var(--soft) / <alpha-value>)",
+      },
+      fontFamily: {
+        sans: ["var(--font-sans)", "-apple-system", "BlinkMacSystemFont", "Segoe UI", "Roboto", "sans-serif"],
+        mono: ["var(--font-mono)", "ui-monospace", "SFMono-Regular", "Menlo", "monospace"],
+      },
+      keyframes: {
+        "fade-in": { from: { opacity: "0" }, to: { opacity: "1" } },
+        "slide-up": {
+          from: { opacity: "0", transform: "translateY(8px)" },
+          to: { opacity: "1", transform: "translateY(0)" },
         },
+      },
+      animation: {
+        "fade-in": "fade-in 0.2s ease-out",
+        "slide-up": "slide-up 0.25s ease-out",
       },
     },
   },

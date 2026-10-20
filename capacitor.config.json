@@ -1,0 +1,12 @@
+{
+  "appId": "app.zarkdroid.flashcards",
+  "appName": "Zarkdroid",
+  "webDir": "public",
+  "server": {
+    "url": "https://zarkdroid.vercel.app",
+    "androidScheme": "https"
+  },
+  "android": {
+    "backgroundColor": "#ffffff"
+  }
+}
