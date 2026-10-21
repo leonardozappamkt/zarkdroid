@@ -26,23 +26,40 @@ export default function SettingsPage() {
   };
 
   const handleImportJSON = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
+    const input = e.target;
+    const file = input.files?.[0];
     if (!file) return;
 
     const reader = new FileReader();
-    reader.onload = (event) => {
+    reader.onload = async (event) => {
       try {
         const parsed = JSON.parse(event.target?.result as string);
-        if (parsed.decks && parsed.cards) {
-          storage.saveDecks(parsed.decks);
-          storage.saveCards(parsed.cards);
-          alert('Baralhos e flashcards importados com sucesso!');
-          window.location.reload();
-        } else {
+        if (!Array.isArray(parsed.decks) || !Array.isArray(parsed.cards)) {
           alert('Arquivo JSON inválido. Formato esperado não encontrado.');
+          return;
         }
+
+        // Merge by id so existing decks are kept; imported items replace same-id ones.
+        const mergeById = <T extends { id: string }>(current: T[], incoming: T[]) => {
+          const byId = new Map(current.map((item) => [item.id, item]));
+          incoming.forEach((item) => byId.set(item.id, item));
+          return Array.from(byId.values());
+        };
+        storage.saveDecks(mergeById(storage.getDecks(), parsed.decks));
+        storage.saveCards(mergeById(storage.getCards(), parsed.cards));
+
+        // Push to the account so the next login (which pulls from the cloud) doesn't drop the import.
+        const sync = await storage.syncToSupabase();
+        alert(
+          sync.success
+            ? 'Baralhos importados e salvos na sua conta.'
+            : `Importado neste aparelho, mas não foi possível salvar na nuvem: ${sync.message}`
+        );
+        window.location.reload();
       } catch (err) {
         alert('Erro ao ler arquivo JSON.');
+      } finally {
+        input.value = '';
       }
     };
     reader.readAsText(file);
