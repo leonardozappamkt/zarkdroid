@@ -1,12 +1,30 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import Link from 'next/link';
 import { ArrowLeft, Download, Upload, RefreshCw } from 'lucide-react';
 import Navbar from '@/components/Navbar';
 import { storage } from '@/lib/storage';
+import { auth, useSession } from '@/lib/auth';
+
+const DELETE_WORD = 'EXCLUIR';
 
 export default function SettingsPage() {
+  const { session } = useSession();
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deleteText, setDeleteText] = useState('');
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState('');
+
+  const handleDeleteAccount = async () => {
+    setDeleteError('');
+    setDeleting(true);
+    const res = await auth.deleteAccount();
+    setDeleting(false);
+    if (!res.ok) setDeleteError(res.message || 'Não foi possível excluir a conta.');
+    // On success the session ends and the auth gate sends the user to /login.
+  };
+
   const handleExportJSON = () => {
     const decks = storage.getDecks();
     const cards = storage.getCards();
@@ -110,6 +128,68 @@ export default function SettingsPage() {
             </button>
           </div>
         </section>
+
+        {/* Account */}
+        {session && (
+          <section className="card space-y-5 p-6">
+            <div>
+              <h2 className="text-lg font-semibold tracking-tight">Conta</h2>
+              <p className="mt-1 text-sm text-mute">{session.user.email}</p>
+            </div>
+
+            {!confirmDelete ? (
+              <div className="flex flex-col gap-3 border-t border-line pt-5 sm:flex-row sm:items-center sm:justify-between">
+                <p className="text-sm text-mute">
+                  Exclui a sua conta e todos os seus baralhos. Não dá para desfazer.
+                </p>
+                <button onClick={() => setConfirmDelete(true)} className="btn-outline shrink-0">
+                  Excluir conta
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-3 border-t border-line pt-5">
+                <p className="text-sm">
+                  Para confirmar, digite <strong className="font-mono">{DELETE_WORD}</strong>. Seus baralhos e cards
+                  serão apagados de forma permanente, neste aparelho e na nuvem.
+                </p>
+                <input
+                  type="text"
+                  autoFocus
+                  autoComplete="off"
+                  value={deleteText}
+                  onChange={(e) => setDeleteText(e.target.value)}
+                  placeholder={DELETE_WORD}
+                  className="field font-mono"
+                />
+                {deleteError && (
+                  <p role="alert" className="rounded-xl border border-ink px-3.5 py-2.5 text-sm">
+                    {deleteError}
+                  </p>
+                )}
+                <div className="flex gap-2">
+                  <button
+                    onClick={handleDeleteAccount}
+                    disabled={deleting || deleteText !== DELETE_WORD}
+                    className="btn-primary"
+                  >
+                    {deleting ? 'Excluindo…' : 'Excluir minha conta'}
+                  </button>
+                  <button
+                    onClick={() => {
+                      setConfirmDelete(false);
+                      setDeleteText('');
+                      setDeleteError('');
+                    }}
+                    disabled={deleting}
+                    className="btn-ghost"
+                  >
+                    Cancelar
+                  </button>
+                </div>
+              </div>
+            )}
+          </section>
+        )}
       </main>
     </div>
   );

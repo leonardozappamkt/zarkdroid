@@ -34,7 +34,7 @@ const SECTIONS = [
   {
     title: 'Backup e exclusão',
     body: [
-      'Você pode exportar seus dados em JSON na tela de Configurações. Ao sair da conta, a cópia local é apagada do aparelho. Para excluir sua conta e os dados na nuvem, escreva para o e-mail de contato abaixo.',
+      'Você pode exportar seus dados em JSON na tela de Configurações. Ao sair da conta, a cópia local é apagada do aparelho. Você pode excluir a sua conta e todos os dados na nuvem a qualquer momento em Configurações → Conta → Excluir conta. A exclusão é imediata e permanente.',
     ],
   },
   {

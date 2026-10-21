@@ -25,7 +25,7 @@
 ## Declarações de privacidade (com login e sincronização)
 - **Google, Data safety:** coleta e-mail (gerenciamento de conta) e conteúdo do usuário (baralhos); criptografado em trânsito; sem compartilhamento com terceiros; informar o caminho para o usuário pedir exclusão de conta e dados (obrigatório).
 - **Apple, App Privacy:** Contact Info (e-mail) e User Content, vinculados à identidade, não usados para rastreamento.
-- Excluir conta dentro do app é obrigatório na Apple para apps que permitem criar conta (guideline 5.1.1(v)). **Falta implementar.**
+- Excluir conta dentro do app (Apple, guideline 5.1.1(v)): **pronto** em Configurações → Conta. Requer a função `delete_my_account` do `supabase-schema.sql`. O Google também pede uma URL pública para solicitar exclusão: pode apontar para a `/settings` ou para o e-mail de contato.
 
 ## Regras específicas
 - **Google:** contas pessoais novas precisam de teste fechado com 12+ testadores por 14 dias antes de publicar em produção. Contas de organização não têm essa exigência.

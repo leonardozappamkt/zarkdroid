@@ -71,6 +71,21 @@ export const auth = {
     return error ? { ok: false, message: translate(error.message) } : { ok: true };
   },
 
+  /** Permanently deletes the signed-in account and its cloud data, then clears this device. */
+  async deleteAccount(): Promise<AuthResult> {
+    const client = getSupabaseClient();
+    if (!client) return NOT_CONFIGURED;
+    const { error } = await client.rpc('delete_my_account');
+    if (error) {
+      console.error('[auth]', error.message);
+      return { ok: false, message: 'Não foi possível excluir a conta agora. Tente novamente em instantes.' };
+    }
+    // The user no longer exists server-side, so only drop the local session.
+    await client.auth.signOut({ scope: 'local' });
+    storage.clearLocal();
+    return { ok: true };
+  },
+
   async signOut(): Promise<void> {
     await getSupabaseClient()?.auth.signOut();
     storage.clearLocal();

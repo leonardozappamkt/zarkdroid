@@ -51,3 +51,23 @@ create policy "own decks" on decks
 create policy "own flashcards" on flashcards
   for all to authenticated
   using (user_id = auth.uid()) with check (user_id = auth.uid());
+
+-- Exclusão de conta feita pelo próprio usuário (exigida pela Apple).
+-- Apaga o usuário autenticado; baralhos e cards saem junto (on delete cascade).
+-- Roda como dono da função, sem expor nenhuma chave secreta ao app.
+create or replace function public.delete_my_account()
+returns void
+language plpgsql
+security definer
+set search_path = public, auth
+as $$
+begin
+  if auth.uid() is null then
+    raise exception 'not authenticated';
+  end if;
+  delete from auth.users where id = auth.uid();
+end;
+$$;
+
+revoke all on function public.delete_my_account() from public, anon;
+grant execute on function public.delete_my_account() to authenticated;
