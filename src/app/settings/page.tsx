@@ -11,7 +11,7 @@ import { MCP_URL } from '@/lib/mcp/config';
 
 type Grant = { client: { id: string; name: string }; granted_at: string };
 
-/** "Conectar ao Claude": URL do servidor MCP + lista de apps conectados (com revogar). */
+/** "Sua IA preferida": URL do servidor MCP + lista de apps conectados (com revogar). */
 function ClaudeConnection() {
   const [copied, setCopied] = useState(false);
   const [grants, setGrants] = useState<Grant[] | null>(null);
@@ -47,9 +47,9 @@ function ClaudeConnection() {
   return (
     <section className="card space-y-5 p-6">
       <div>
-        <h2 className="text-lg font-semibold tracking-tight">Conectar ao Claude</h2>
+        <h2 className="text-lg font-semibold tracking-tight">Sua IA preferida</h2>
         <p className="mt-1 text-sm text-mute">
-          Peça ao Claude para criar cards, listar seus baralhos ou te testar, direto na sua conta.
+          Conecte sua IA para criar cards, listar seus baralhos ou te testar, direto na sua conta.
         </p>
       </div>
 
@@ -65,7 +65,7 @@ function ClaudeConnection() {
       </div>
 
       <ol className="list-decimal space-y-1.5 pl-5 text-sm text-mute">
-        <li>No Claude, abra Configurações → Conectores → Adicionar conector personalizado.</li>
+        <li>No app da sua IA, abra as configurações de conectores e adicione um conector personalizado.</li>
         <li>Cole a URL acima e conecte.</li>
         <li>Entre com a sua conta Zarkdroid e toque em Permitir.</li>
       </ol>
