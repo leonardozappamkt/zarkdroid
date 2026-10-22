@@ -2,10 +2,11 @@
 
 import React, { useEffect, useState, use } from 'react';
 import Link from 'next/link';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, Volume2, VolumeX } from 'lucide-react';
 import { Flashcard, Deck, ReviewRating, StudySessionStats } from '@/types';
 import { storage } from '@/lib/storage';
 import { calculateNextReview, formatIntervalEstimate } from '@/lib/srs';
+import { canSpeak, getAutoSpeak, setAutoSpeak, speak, stopSpeaking } from '@/lib/speech';
 
 interface StudyPageProps {
   params: Promise<{ deckId: string }>;
@@ -48,6 +49,26 @@ export default function StudyPage({ params }: StudyPageProps) {
   }, [deckId]);
 
   const currentCard = queue[currentIndex];
+
+  // Voz automática: lê a palavra em inglês quando o card aparece (preferência guardada no aparelho).
+  const [autoSpeak, setAutoSpeakState] = useState(false);
+  const [speechAvailable, setSpeechAvailable] = useState(false);
+  useEffect(() => {
+    setSpeechAvailable(canSpeak());
+    setAutoSpeakState(getAutoSpeak());
+    return () => stopSpeaking();
+  }, []);
+
+  useEffect(() => {
+    if (autoSpeak && currentCard && !isFinished) speak(currentCard.front);
+  }, [autoSpeak, currentCard?.id, isFinished]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const toggleAutoSpeak = () => {
+    const next = !autoSpeak;
+    setAutoSpeakState(next);
+    setAutoSpeak(next);
+    if (!next) stopSpeaking();
+  };
 
   const handleRating = (rating: ReviewRating) => {
     if (!currentCard) return;
@@ -178,6 +199,17 @@ export default function StudyPage({ params }: StudyPageProps) {
             </div>
           </div>
 
+          <div className="flex items-center gap-4">
+          {speechAvailable && (
+            <button
+              onClick={toggleAutoSpeak}
+              aria-pressed={autoSpeak}
+              title={autoSpeak ? 'Voz automática ligada' : 'Voz automática desligada'}
+              className={`rounded-full p-2 hover:bg-soft ${autoSpeak ? 'text-ink' : 'text-mute'}`}
+            >
+              {autoSpeak ? <Volume2 className="h-4 w-4" /> : <VolumeX className="h-4 w-4" />}
+            </button>
+          )}
           <dl className="flex gap-4 font-mono text-xs">
             {counts.map((c) => (
               <div key={c.label} className="text-center" title={c.label}>
@@ -186,6 +218,7 @@ export default function StudyPage({ params }: StudyPageProps) {
               </div>
             ))}
           </dl>
+          </div>
         </div>
         <div className="h-px w-full bg-line">
           <div className="h-px bg-ink transition-all duration-300" style={{ width: `${progressPercentage}%` }} />
@@ -210,8 +243,20 @@ export default function StudyPage({ params }: StudyPageProps) {
               )}
             </div>
 
-            <div className="py-8 text-center text-3xl font-semibold leading-snug tracking-tight sm:text-4xl">
-              {currentCard.front}
+            <div className="flex flex-col items-center gap-3 py-8">
+              <div className="text-center text-3xl font-semibold leading-snug tracking-tight sm:text-4xl">
+                {currentCard.front}
+              </div>
+              {speechAvailable && (
+                <button
+                  onClick={() => speak(currentCard.front)}
+                  aria-label="Ouvir pronúncia"
+                  title="Ouvir pronúncia"
+                  className="rounded-full border border-line p-2.5 text-mute hover:border-ink hover:text-ink"
+                >
+                  <Volume2 className="h-4 w-4" />
+                </button>
+              )}
             </div>
 
             {showAnswer ? (

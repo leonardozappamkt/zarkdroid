@@ -2,11 +2,12 @@
 
 import React, { useEffect, useState, use } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, Plus, Play, Trash2, Search } from 'lucide-react';
+import { ArrowLeft, Plus, Play, Trash2, Search, Volume2 } from 'lucide-react';
 import Navbar from '@/components/Navbar';
 import CreateCardModal from '@/components/CreateCardModal';
 import { Deck, Flashcard } from '@/types';
 import { storage } from '@/lib/storage';
+import { canSpeak, speak } from '@/lib/speech';
 
 interface DeckDetailPageProps {
   params: Promise<{ deckId: string }>;
@@ -20,6 +21,8 @@ export default function DeckDetailPage({ params }: DeckDetailPageProps) {
   const [cards, setCards] = useState<Flashcard[]>([]);
   const [isNewCardOpen, setIsNewCardOpen] = useState(false);
   const [searchFilter, setSearchFilter] = useState('');
+  const [speechAvailable, setSpeechAvailable] = useState(false);
+  useEffect(() => setSpeechAvailable(canSpeak()), []);
 
   const loadData = () => {
     const loadedDecks = storage.getDecks();
@@ -120,7 +123,19 @@ export default function DeckDetailPage({ params }: DeckDetailPageProps) {
             {filteredCards.map((card) => (
               <li key={card.id} className="flex items-start justify-between gap-4 p-4 sm:p-5">
                 <div className="grid min-w-0 flex-1 gap-1 sm:grid-cols-2 sm:gap-6">
-                  <p className="font-medium">{card.front}</p>
+                  <p className="flex items-center gap-2 font-medium">
+                    {card.front}
+                    {speechAvailable && (
+                      <button
+                        onClick={() => speak(card.front)}
+                        aria-label="Ouvir pronúncia"
+                        title="Ouvir pronúncia"
+                        className="rounded-full p-1.5 text-mute hover:bg-soft hover:text-ink"
+                      >
+                        <Volume2 className="h-4 w-4" />
+                      </button>
+                    )}
+                  </p>
                   <div>
                     <p className="line-clamp-2 text-sm text-mute">{card.back}</p>
                     {card.extra && <p className="mt-1 text-xs italic text-mute">{card.extra}</p>}
