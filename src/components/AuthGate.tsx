@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { auth, useSession } from '@/lib/auth';
 import { storage } from '@/lib/storage';
+import { safeNext } from '@/lib/redirect';
 
 // Reachable without an account.
 const PUBLIC_PATHS = ['/login', '/signup', '/forgot-password', '/reset-password', '/privacy', '/download'];
@@ -28,9 +29,11 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (loading) return;
     if (!session && !isPublic) {
-      router.replace('/login');
+      // Remember where the user was going (e.g. the OAuth consent screen) and come back after login.
+      const here = pathname + window.location.search;
+      router.replace(here === '/' ? '/login' : `/login?next=${encodeURIComponent(here)}`);
     } else if (session && GUEST_ONLY_PATHS.includes(pathname)) {
-      router.replace('/');
+      router.replace(safeNext(new URLSearchParams(window.location.search).get('next')));
     }
   }, [loading, session, isPublic, pathname, router]);
 

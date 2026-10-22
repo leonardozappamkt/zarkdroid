@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import AuthShell, { FormMessage } from '@/components/AuthShell';
 import PasswordInput from '@/components/PasswordInput';
 import { auth } from '@/lib/auth';
+import { safeNext } from '@/lib/redirect';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -21,7 +22,7 @@ export default function LoginPage() {
     const res = await auth.signIn(email, password);
     setLoading(false);
     if (res.ok) {
-      router.push('/');
+      router.push(safeNext(new URLSearchParams(window.location.search).get('next')));
     } else {
       setError(res.message || 'Não foi possível entrar.');
     }

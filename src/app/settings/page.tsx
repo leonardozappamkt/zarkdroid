@@ -1,11 +1,100 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, Download, Upload, RefreshCw } from 'lucide-react';
+import { ArrowLeft, Download, Upload, RefreshCw, Copy, Check } from 'lucide-react';
 import Navbar from '@/components/Navbar';
 import { storage } from '@/lib/storage';
 import { auth, useSession } from '@/lib/auth';
+import { getSupabaseClient } from '@/lib/supabase';
+import { MCP_URL } from '@/lib/mcp/config';
+
+type Grant = { client: { id: string; name: string }; granted_at: string };
+
+/** "Conectar ao Claude": URL do servidor MCP + lista de apps conectados (com revogar). */
+function ClaudeConnection() {
+  const [copied, setCopied] = useState(false);
+  const [grants, setGrants] = useState<Grant[] | null>(null);
+  const [revoking, setRevoking] = useState<string | null>(null);
+
+  const loadGrants = async () => {
+    const { data } = (await getSupabaseClient()?.auth.oauth.listGrants()) ?? { data: null };
+    setGrants((data as Grant[] | null) ?? []);
+  };
+
+  useEffect(() => {
+    loadGrants();
+  }, []);
+
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(MCP_URL);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      /* clipboard blocked: the URL is selectable on screen */
+    }
+  };
+
+  const revoke = async (clientId: string) => {
+    if (!confirm('Revogar o acesso deste app à sua conta?')) return;
+    setRevoking(clientId);
+    await getSupabaseClient()?.auth.oauth.revokeGrant({ clientId });
+    setRevoking(null);
+    loadGrants();
+  };
+
+  return (
+    <section className="card space-y-5 p-6">
+      <div>
+        <h2 className="text-lg font-semibold tracking-tight">Conectar ao Claude</h2>
+        <p className="mt-1 text-sm text-mute">
+          Peça ao Claude para criar cards, listar seus baralhos ou te testar, direto na sua conta.
+        </p>
+      </div>
+
+      <div>
+        <label className="label">URL do servidor MCP</label>
+        <div className="flex gap-2">
+          <input readOnly value={MCP_URL} onFocus={(e) => e.currentTarget.select()} className="field font-mono text-xs" />
+          <button onClick={copy} className="btn-outline shrink-0">
+            {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+            {copied ? 'Copiado' : 'Copiar'}
+          </button>
+        </div>
+      </div>
+
+      <ol className="list-decimal space-y-1.5 pl-5 text-sm text-mute">
+        <li>No Claude, abra Configurações → Conectores → Adicionar conector personalizado.</li>
+        <li>Cole a URL acima e conecte.</li>
+        <li>Entre com a sua conta Zarkdroid e toque em Permitir.</li>
+      </ol>
+
+      <div className="border-t border-line pt-5">
+        <p className="label">Apps conectados</p>
+        {grants === null ? (
+          <p className="text-sm text-mute">Carregando…</p>
+        ) : grants.length === 0 ? (
+          <p className="text-sm text-mute">Nenhum app conectado.</p>
+        ) : (
+          <ul className="divide-y divide-line">
+            {grants.map((g) => (
+              <li key={g.client.id} className="flex items-center justify-between gap-3 py-2.5">
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-medium">{g.client.name || 'App sem nome'}</p>
+                  <p className="text-xs text-mute">desde {new Date(g.granted_at).toLocaleDateString('pt-BR')}</p>
+                </div>
+                <button onClick={() => revoke(g.client.id)} disabled={revoking === g.client.id} className="btn-outline shrink-0">
+                  Revogar
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+    </section>
+  );
+}
 
 const DELETE_WORD = 'EXCLUIR';
 
@@ -104,6 +193,8 @@ export default function SettingsPage() {
           </Link>
           <h1 className="text-3xl font-semibold tracking-tight">Configurações</h1>
         </div>
+
+        <ClaudeConnection />
 
         {/* Backup */}
         <section className="card space-y-5 p-6">

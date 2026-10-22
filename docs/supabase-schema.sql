@@ -65,9 +65,27 @@ begin
   if auth.uid() is null then
     raise exception 'not authenticated';
   end if;
+  -- Apps conectados por OAuth (ex.: Claude via MCP) nunca podem excluir a conta.
+  if (auth.jwt() ->> 'client_id') is not null then
+    raise exception 'not allowed for connected apps';
+  end if;
   delete from auth.users where id = auth.uid();
 end;
 $$;
 
 revoke all on function public.delete_my_account() from public, anon;
 grant execute on function public.delete_my_account() to authenticated;
+
+-- Apps conectados por OAuth (ex.: Claude via MCP) leem, criam e editam, mas NÃO excluem.
+-- Tokens emitidos pelo servidor OAuth do Supabase trazem o claim `client_id`; o login normal não.
+-- Política RESTRICTIVE: soma-se à "own ..." acima, então só passa quem é dono E não é app OAuth.
+drop policy if exists "no delete via oauth" on decks;
+drop policy if exists "no delete via oauth" on flashcards;
+
+create policy "no delete via oauth" on decks
+  as restrictive for delete to authenticated
+  using ((auth.jwt() ->> 'client_id') is null);
+
+create policy "no delete via oauth" on flashcards
+  as restrictive for delete to authenticated
+  using ((auth.jwt() ->> 'client_id') is null);
