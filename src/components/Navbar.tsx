@@ -13,6 +13,8 @@ interface NavbarProps {
 
 const NAV_ITEMS = [
   { label: 'Baralhos', href: '/' },
+  { label: 'Biblioteca', href: '/library' },
+  { label: 'Estatísticas', href: '/stats' },
   { label: 'Configurações', href: '/settings' },
   { label: 'Download', href: '/download' },
 ];

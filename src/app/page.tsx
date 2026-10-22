@@ -8,6 +8,8 @@ import CreateDeckModal from '@/components/CreateDeckModal';
 import CreateCardModal from '@/components/CreateCardModal';
 import { Deck, Flashcard } from '@/types';
 import { storage } from '@/lib/storage';
+import { computeStats, type Stats } from '@/lib/stats';
+import { getStudySettings } from '@/lib/settings';
 
 export default function HomePage() {
   const [decks, setDecks] = useState<Deck[]>([]);
@@ -16,12 +18,14 @@ export default function HomePage() {
   const [isNewCardOpen, setIsNewCardOpen] = useState(false);
   const [selectedDeckForCard, setSelectedDeckForCard] = useState<string | undefined>();
   const [searchQuery, setSearchQuery] = useState('');
+  const [progress, setProgress] = useState<{ stats: Stats; goal: number } | null>(null);
 
   const refreshData = () => {
     const loadedCards = storage.getCards();
     storage.recalculateDeckCounts(loadedCards);
     setCards(loadedCards);
     setDecks(storage.getDecks());
+    setProgress({ stats: computeStats(loadedCards, storage.getReviewLogs()), goal: getStudySettings().dailyGoal });
   };
 
   useEffect(() => {
@@ -104,6 +108,35 @@ export default function HomePage() {
             </div>
           ))}
         </section>
+
+        {/* Daily goal */}
+        {progress && (
+          <section className="card flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:gap-8">
+            <div className="flex-1 space-y-2">
+              <div className="flex items-baseline justify-between">
+                <p className="text-xs uppercase tracking-wider text-mute">Meta de hoje</p>
+                <p className="font-mono text-sm tabular-nums">
+                  {Math.min(progress.stats.todayTotal, progress.goal)} / {progress.goal}
+                </p>
+              </div>
+              <div className="h-2 overflow-hidden rounded-full bg-soft">
+                <div
+                  className="h-full rounded-full bg-ink transition-all"
+                  style={{ width: `${Math.min(100, (progress.stats.todayTotal / progress.goal) * 100)}%` }}
+                />
+              </div>
+            </div>
+            <div className="flex items-center gap-6 sm:gap-8">
+              <div>
+                <p className="text-xs uppercase tracking-wider text-mute">Sequência</p>
+                <p className="font-mono text-2xl font-semibold tabular-nums">{progress.stats.streak} d</p>
+              </div>
+              <Link href="/stats" className="btn-outline">
+                Estatísticas
+              </Link>
+            </div>
+          </section>
+        )}
 
         {/* Decks */}
         <section className="space-y-5">

@@ -16,7 +16,41 @@ export interface Flashcard {
   ease_factor: number; // starting around 2.5
   due_date: string; // ISO date
   last_reviewed?: string;
+  // FSRS memory state. Missing on cards created before FSRS: the scheduler derives it from interval/ease_factor.
+  stability?: number;
+  difficulty?: number;
+  lapses?: number;
+  learning_steps?: number;
 }
+
+/** One answered review, kept for daily limits, undo and the stats page. */
+export interface ReviewLog {
+  id: string;
+  card_id: string;
+  deck_id: string;
+  rating: ReviewRating;
+  state_before: Flashcard['state'];
+  reviewed_at: string; // ISO date
+  scheduled_days: number;
+  stability: number;
+  difficulty: number;
+}
+
+/** Per-device study preferences (Settings → Estudo). */
+export interface StudySettings {
+  newPerDay: number;
+  reviewsPerDay: number;
+  /** FSRS target recall probability at review time (0.8–0.97). */
+  desiredRetention: number;
+  /** How cards are answered: flip (reveal), type the answer, listen and type (dictation) or say it aloud. */
+  mode: StudyMode;
+  /** Show the back as the prompt and ask for the front. */
+  reverse: boolean;
+  /** Reviews per day that fill the progress bar on the home screen. */
+  dailyGoal: number;
+}
+
+export type StudyMode = 'flip' | 'type' | 'listen' | 'speak';
 
 export interface Deck {
   id: string;

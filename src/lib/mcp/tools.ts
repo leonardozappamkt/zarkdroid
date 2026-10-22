@@ -2,13 +2,14 @@ import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/server';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { createUserClient } from './auth';
-import { calculateNextReview } from '@/lib/srs';
+import { applyRating } from '@/lib/scheduler';
+import { DEFAULT_STUDY_SETTINGS } from '@/lib/settings';
 import type { Flashcard, ReviewRating } from '@/types';
 
 type ToolContext = { http?: { authInfo?: { token?: string } } };
 
 const PAGE = 1000;
-const CARD_COLUMNS = 'id, deck_id, front, back, extra, tags, state, interval, ease_factor, due_date';
+const CARD_COLUMNS = 'id, deck_id, front, back, extra, tags, state, interval, ease_factor, due_date, lapses';
 
 const ok = (data: unknown) => ({ content: [{ type: 'text' as const, text: JSON.stringify(data, null, 2) }] });
 const fail = (message: string) => ({ isError: true, content: [{ type: 'text' as const, text: message }] });
@@ -160,7 +161,9 @@ export function registerZarkdroidTools(server: McpServer) {
     'create_cards',
     {
       description:
-        'Adds cards to a deck (up to 100 per call). "front" is the prompt (e.g. the English word) and "back" the answer (e.g. the translation). Confirm with the user before adding many cards.',
+        'Adds cards to a deck (up to 100 per call). "front" is the prompt (e.g. the English word) and "back" the answer (e.g. the translation). ' +
+        'Text supports Markdown, LaTeX math ($x^2$) and cloze deletions: put {{c1::answer}} in the front for a fill-in-the-blank card (add {{c1::answer::hint}} for a hint). ' +
+        'Confirm with the user before adding many cards.',
       inputSchema: z.object({
         deck_id: z.string().describe('Deck id from list_decks.'),
         cards: z
@@ -255,7 +258,7 @@ export function registerZarkdroidTools(server: McpServer) {
     'review_card',
     {
       description:
-        'Records how well the user recalled a card (again, hard, good or easy) and schedules the next review with the same spaced-repetition rules as the app.',
+        'Records how well the user recalled a card (again, hard, good or easy) and schedules the next review with the same FSRS spaced-repetition algorithm as the app.',
       inputSchema: z.object({
         card_id: z.string(),
         rating: z.enum(['again', 'hard', 'good', 'easy']),
@@ -267,16 +270,36 @@ export function registerZarkdroidTools(server: McpServer) {
         if (error) throw new Error(error.message);
         if (!card) throw new Error('Card not found.');
 
-        const next = calculateNextReview(card as Flashcard, rating);
+        const now = new Date();
+        const previous = { ...(card as Flashcard), last_reviewed: (card as { last_review?: string }).last_review };
+        const next = applyRating(previous, rating, DEFAULT_STUDY_SETTINGS.desiredRetention, now);
         const changes = {
           repetitions: next.repetitions,
           interval: next.interval,
           ease_factor: next.ease_factor,
           state: next.state,
           due_date: next.due_date,
+          stability: next.stability,
+          difficulty: next.difficulty,
+          lapses: next.lapses,
+          learning_steps: next.learning_steps,
+          last_review: next.last_reviewed,
         };
         const { error: updateError } = await sb.from('flashcards').update(changes).eq('id', card_id);
         if (updateError) throw new Error(updateError.message);
+
+        // Keep the history in sync with what the app records (stats, daily limits). Never blocks the review.
+        await sb.from('review_logs').insert({
+          id: `log-${now.getTime()}-${Math.random().toString(36).slice(2, 7)}`,
+          card_id,
+          deck_id: (card as { deck_id: string }).deck_id,
+          rating: { again: 1, hard: 2, good: 3, easy: 4 }[rating],
+          state_before: (card as { state: string }).state,
+          reviewed_at: now.toISOString(),
+          scheduled_days: next.interval,
+          stability: next.stability,
+          difficulty: next.difficulty,
+        });
         return { card_id, rating, ...changes };
       }),
   );

@@ -1,5 +1,8 @@
-import { Deck, Flashcard } from '@/types';
+import { Deck, Flashcard, ReviewLog, ReviewRating } from '@/types';
 import { getSupabaseClient, getSyncClient } from './supabase';
+import { getStudySettings } from './settings';
+import { buildQueue, queueCounts } from './queue';
+import type { ImportedCard } from './csv';
 
 const INITIAL_DECKS: Deck[] = [
   {
@@ -198,6 +201,70 @@ const INITIAL_CARDS: Flashcard[] = [
 
 const STORAGE_KEY_DECKS = 'zarkdroid_decks';
 const STORAGE_KEY_CARDS = 'zarkdroid_cards';
+const STORAGE_KEY_LOGS = 'zarkdroid_reviewlogs';
+
+/** Logs older than this are dropped locally: stats only need the last year and localStorage is small. */
+const LOG_RETENTION_MS = 400 * 24 * 3600 * 1000;
+const CLOUD_CHUNK = 400;
+
+const RATING_TO_INT: Record<ReviewRating, number> = { again: 1, hard: 2, good: 3, easy: 4 };
+const INT_TO_RATING: Record<number, ReviewRating> = { 1: 'again', 2: 'hard', 3: 'good', 4: 'easy' };
+
+/** Columns that exist since FSRS. If the database hasn't been migrated yet, we retry without them. */
+const FSRS_COLUMNS = ['stability', 'difficulty', 'lapses', 'learning_steps', 'last_review'] as const;
+
+function cardRow(c: Flashcard, withCreatedAt = false) {
+  return {
+    id: c.id,
+    deck_id: c.deck_id,
+    front: c.front,
+    back: c.back,
+    extra: c.extra || null,
+    tags: c.tags || [],
+    state: c.state,
+    repetitions: c.repetitions,
+    interval: c.interval,
+    ease_factor: c.ease_factor,
+    due_date: c.due_date,
+    stability: c.stability ?? 0,
+    difficulty: c.difficulty ?? 0,
+    lapses: c.lapses ?? 0,
+    learning_steps: c.learning_steps ?? 0,
+    last_review: c.last_reviewed ?? null,
+    ...(withCreatedAt ? { created_at: c.created_at } : {}),
+  };
+}
+
+/** Upserts cards in chunks; if the FSRS columns don't exist yet in Supabase, retries with the legacy columns. */
+async function upsertCardRows(client: NonNullable<ReturnType<typeof getSupabaseClient>>, rows: ReturnType<typeof cardRow>[]) {
+  for (let i = 0; i < rows.length; i += CLOUD_CHUNK) {
+    const chunk = rows.slice(i, i + CLOUD_CHUNK);
+    let { error } = await client.from('flashcards').upsert(chunk);
+    if (error && /column|schema cache/i.test(error.message)) {
+      const legacy = chunk.map((row) => {
+        const copy: Record<string, unknown> = { ...row };
+        FSRS_COLUMNS.forEach((k) => delete copy[k]);
+        return copy;
+      });
+      ({ error } = await client.from('flashcards').upsert(legacy));
+    }
+    if (error) throw error;
+  }
+}
+
+function logRow(l: ReviewLog) {
+  return {
+    id: l.id,
+    card_id: l.card_id,
+    deck_id: l.deck_id,
+    rating: RATING_TO_INT[l.rating],
+    state_before: l.state_before,
+    reviewed_at: l.reviewed_at,
+    scheduled_days: l.scheduled_days,
+    stability: l.stability,
+    difficulty: l.difficulty,
+  };
+}
 
 export const storage = {
   getDecks(): Deck[] {
@@ -245,32 +312,64 @@ export const storage = {
     }
   },
 
+  /** Per-deck counters shown on the home screen, using the same daily limits as the study queue. */
   recalculateDeckCounts(cards?: Flashcard[]): void {
     const allCards = cards || this.getCards();
     const decks = this.getDecks();
     const now = new Date();
+    const settings = getStudySettings();
+    const logs = this.getReviewLogs();
 
     const updatedDecks = decks.map((deck) => {
       const deckCards = allCards.filter((c) => c.deck_id === deck.id);
-      const new_count = deckCards.filter((c) => c.state === 'new').length;
-      const learn_count = deckCards.filter((c) => c.state === 'learning').length;
-      const due_count = deckCards.filter((c) => {
-        if (c.state === 'review') {
-          return new Date(c.due_date) <= now;
-        }
-        return false;
-      }).length;
-
+      const counts = queueCounts(buildQueue(deckCards, settings, logs, now, {}, deck.id));
       return {
         ...deck,
         total_cards: deckCards.length,
-        new_count,
-        learn_count,
-        due_count,
+        new_count: counts.new,
+        learn_count: counts.learning,
+        due_count: counts.review,
       };
     });
 
     this.saveDecks(updatedDecks);
+  },
+
+  // ---------- Review log (daily limits, undo, stats) ----------
+
+  getReviewLogs(): ReviewLog[] {
+    if (typeof window === 'undefined') return [];
+    try {
+      return JSON.parse(localStorage.getItem(STORAGE_KEY_LOGS) || '[]');
+    } catch {
+      return [];
+    }
+  },
+
+  saveReviewLogs(logs: ReviewLog[]): void {
+    if (typeof window === 'undefined') return;
+    const cutoff = Date.now() - LOG_RETENTION_MS;
+    try {
+      localStorage.setItem(STORAGE_KEY_LOGS, JSON.stringify(logs.filter((l) => new Date(l.reviewed_at).getTime() >= cutoff)));
+    } catch (e) {
+      console.warn('Could not save review log:', e);
+    }
+  },
+
+  addReviewLog(log: ReviewLog): void {
+    this.saveReviewLogs([...this.getReviewLogs(), log]);
+    const client = getSyncClient();
+    if (client) {
+      Promise.resolve(client.from('review_logs').insert(logRow(log))).catch((e) => console.warn('Review log sync failed:', e));
+    }
+  },
+
+  removeReviewLog(logId: string): void {
+    this.saveReviewLogs(this.getReviewLogs().filter((l) => l.id !== logId));
+    const client = getSyncClient();
+    if (client) {
+      Promise.resolve(client.from('review_logs').delete().eq('id', logId)).catch((e) => console.warn('Review log sync failed:', e));
+    }
   },
 
   async syncToSupabase(): Promise<{ success: boolean; message: string }> {
@@ -296,23 +395,7 @@ export const storage = {
       if (deckErr) throw deckErr;
 
       // Upsert cards
-      const cardRows = cards.map((c) => ({
-        id: c.id,
-        deck_id: c.deck_id,
-        front: c.front,
-        back: c.back,
-        extra: c.extra || null,
-        tags: c.tags || [],
-        state: c.state,
-        repetitions: c.repetitions,
-        interval: c.interval,
-        ease_factor: c.ease_factor,
-        due_date: c.due_date,
-        created_at: c.created_at,
-      }));
-
-      const { error: cardErr } = await client.from('flashcards').upsert(cardRows);
-      if (cardErr) throw cardErr;
+      await upsertCardRows(client, cards.map((c) => cardRow(c, true)));
 
       return { success: true, message: 'Sincronização com o Supabase concluída com sucesso!' };
     } catch (err: any) {
@@ -346,7 +429,24 @@ export const storage = {
       }
 
       if (remoteCards) {
-        this.saveCards(remoteCards);
+        this.saveCards(
+          remoteCards.map((c: any) => ({ ...c, last_reviewed: c.last_review ?? c.last_reviewed ?? undefined })),
+        );
+      }
+
+      // Review history (stats + today's limits). Optional: older databases don't have the table yet.
+      const since = new Date(Date.now() - LOG_RETENTION_MS).toISOString();
+      const { data: remoteLogs, error: logErr } = await client
+        .from('review_logs')
+        .select('id, card_id, deck_id, rating, state_before, reviewed_at, scheduled_days, stability, difficulty')
+        .gte('reviewed_at', since)
+        .order('reviewed_at', { ascending: false })
+        .limit(20000);
+      if (!logErr && remoteLogs) {
+        this.saveReviewLogs(
+          remoteLogs.map((l: any) => ({ ...l, rating: INT_TO_RATING[l.rating] ?? 'good' })) as ReviewLog[],
+        );
+        this.recalculateDeckCounts();
       }
 
       return { success: true, message: 'Dados baixados do Supabase com sucesso!' };
@@ -355,11 +455,72 @@ export const storage = {
     }
   },
 
+  /**
+   * Adds whole decks at once (CSV/Anki import, library). One local write and one cloud upsert, however many
+   * cards. With `fixedIds`, ids are derived from the deck key, so adding the same deck twice updates instead of duplicating.
+   */
+  async importDecks(
+    decks: { key?: string; title: string; description?: string; cards: ImportedCard[] }[],
+  ): Promise<{ decks: number; cards: number; synced: boolean }> {
+    const now = new Date().toISOString();
+    const stamp = Date.now();
+    const newDecks: Deck[] = [];
+    const newCards: Flashcard[] = [];
+
+    decks.forEach((d, di) => {
+      const deckId = d.key ? `deck-${d.key}` : `deck-${stamp}-${di}-${Math.random().toString(36).slice(2, 6)}`;
+      newDecks.push({
+        id: deckId,
+        title: d.title,
+        description: d.description ?? '',
+        color: '#0a0a0a',
+        created_at: now,
+        updated_at: now,
+        total_cards: 0,
+        new_count: 0,
+        learn_count: 0,
+        due_count: 0,
+      });
+      d.cards.forEach((c, ci) => {
+        newCards.push({
+          id: d.key ? `card-${d.key}-${ci + 1}` : `card-${stamp}-${di}-${ci}-${Math.random().toString(36).slice(2, 6)}`,
+          deck_id: deckId,
+          front: c.front,
+          back: c.back,
+          extra: c.extra,
+          tags: c.tags.length ? c.tags : undefined,
+          created_at: new Date(stamp + ci).toISOString(),
+          updated_at: now,
+          state: 'new',
+          repetitions: 0,
+          interval: 0,
+          ease_factor: 2.5,
+          due_date: now,
+        });
+      });
+    });
+
+    const mergeById = <T extends { id: string }>(current: T[], incoming: T[]) => {
+      const byId = new Map(current.map((item) => [item.id, item]));
+      // Re-adding a library deck must not wipe the study progress of cards that already exist.
+      incoming.forEach((item) => {
+        if (!byId.has(item.id)) byId.set(item.id, item);
+      });
+      return Array.from(byId.values());
+    };
+    this.saveDecks(mergeById(this.getDecks(), newDecks));
+    this.saveCards(mergeById(this.getCards(), newCards));
+
+    const sync = await this.syncToSupabase();
+    return { decks: newDecks.length, cards: newCards.length, synced: sync.success };
+  },
+
   /** Removes this device's local data (used on sign-out so accounts never mix). */
   clearLocal(): void {
     if (typeof window === 'undefined') return;
     localStorage.removeItem(STORAGE_KEY_DECKS);
     localStorage.removeItem(STORAGE_KEY_CARDS);
+    localStorage.removeItem(STORAGE_KEY_LOGS);
   },
 
   /** Cloud is the source of truth after login: pull it, or seed it from local data when empty. */
@@ -388,21 +549,8 @@ export const storage = {
 
       const client = getSyncClient();
       if (client) {
-        Promise.resolve(
-          client.from('flashcards').upsert({
-            id: card.id,
-            deck_id: card.deck_id,
-            front: card.front,
-            back: card.back,
-            extra: card.extra || null,
-            tags: card.tags || [],
-            state: card.state,
-            repetitions: card.repetitions,
-            interval: card.interval,
-            ease_factor: card.ease_factor,
-            due_date: card.due_date,
-          })
-        ).catch((e) => console.warn('Supabase auto-sync card update failed:', e));
+        upsertCardRows(client, [cardRow(card)])
+          .catch((e) => console.warn('Supabase auto-sync card update failed:', e));
       }
     }
   },

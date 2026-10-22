@@ -8,6 +8,98 @@ import { storage } from '@/lib/storage';
 import { auth, useSession } from '@/lib/auth';
 import { getSupabaseClient } from '@/lib/supabase';
 import { MCP_URL } from '@/lib/mcp/config';
+import { getStudySettings, saveStudySettings, DEFAULT_STUDY_SETTINGS } from '@/lib/settings';
+import type { StudyMode, StudySettings } from '@/types';
+
+/** Limites diários e retenção desejada (por aparelho). */
+function StudySettingsCard() {
+  const [values, setValues] = useState<StudySettings>(DEFAULT_STUDY_SETTINGS);
+
+  useEffect(() => setValues(getStudySettings()), []);
+
+  const update = (patch: Partial<StudySettings>) => {
+    const next = { ...values, ...patch };
+    setValues(next);
+    saveStudySettings(next);
+    storage.recalculateDeckCounts();
+  };
+
+  const field = (label: string, hint: string, key: 'newPerDay' | 'reviewsPerDay' | 'dailyGoal', max: number) => (
+    <div>
+      <label className="label">{label}</label>
+      <input
+        type="number"
+        min={0}
+        max={max}
+        value={values[key]}
+        onChange={(e) => update({ [key]: Math.max(0, Math.min(max, Number(e.target.value) || 0)) })}
+        className="field font-mono"
+      />
+      <p className="mt-1.5 text-xs text-mute">{hint}</p>
+    </div>
+  );
+
+  return (
+    <section className="card space-y-5 p-6">
+      <div>
+        <h2 className="text-lg font-semibold tracking-tight">Estudo</h2>
+        <p className="mt-1 text-sm text-mute">Quanto estudar por dia. Vale para este aparelho.</p>
+      </div>
+
+      <div className="grid gap-4 sm:grid-cols-2">
+        {field('Cards novos por dia', 'Palavras novas que entram a cada dia.', 'newPerDay', 999)}
+        {field('Revisões por dia (máximo)', 'Limite de revisões de cards já vistos.', 'reviewsPerDay', 9999)}
+        {field('Meta diária', 'Respostas por dia que enchem a barra da tela inicial.', 'dailyGoal', 9999)}
+        <div>
+          <label className="label">Modo de estudo</label>
+          <select
+            value={values.mode}
+            onChange={(e) => update({ mode: e.target.value as StudyMode })}
+            className="field"
+          >
+            <option value="flip">Virar o card</option>
+            <option value="type">Digitar a resposta</option>
+            <option value="listen">Ouvir e digitar (ditado)</option>
+            <option value="speak">Falar em voz alta</option>
+          </select>
+          <p className="mt-1.5 text-xs text-mute">
+            “Falar” depende do navegador (funciona no Chrome e no Safari; no app Android pode não estar disponível).
+          </p>
+        </div>
+      </div>
+
+      <label className="flex cursor-pointer items-center gap-3 text-sm">
+        <input
+          type="checkbox"
+          checked={values.reverse}
+          onChange={(e) => update({ reverse: e.target.checked })}
+          className="h-4 w-4 accent-[rgb(var(--ink))]"
+        />
+        <span>
+          Inverter: mostrar o verso e pedir a frente
+          <span className="block text-xs text-mute">Ex.: ver “desistir” e lembrar “give up”. É o treino mais difícil e o mais eficaz.</span>
+        </span>
+      </label>
+
+      <div>
+        <label className="label">
+          Retenção desejada: <span className="font-mono">{Math.round(values.desiredRetention * 100)}%</span>
+        </label>
+        <input
+          type="range"
+          min={70}
+          max={97}
+          value={Math.round(values.desiredRetention * 100)}
+          onChange={(e) => update({ desiredRetention: Number(e.target.value) / 100 })}
+          className="w-full accent-[rgb(var(--ink))]"
+        />
+        <p className="mt-1.5 text-xs text-mute">
+          Quanto você quer lembrar na hora da revisão. Mais alto significa mais revisões; 90% é um bom equilíbrio.
+        </p>
+      </div>
+    </section>
+  );
+}
 
 type Grant = { client: { id: string; name: string }; granted_at: string };
 
@@ -194,6 +286,8 @@ export default function SettingsPage() {
           <h1 className="text-3xl font-semibold tracking-tight">Configurações</h1>
         </div>
 
+        <StudySettingsCard />
+
         <ClaudeConnection />
 
         {/* Backup */}
@@ -208,6 +302,10 @@ export default function SettingsPage() {
               <Download className="h-4 w-4" />
               Exportar
             </button>
+            <Link href="/import" className="btn-outline">
+              <Upload className="h-4 w-4" />
+              Importar do Anki / CSV
+            </Link>
             <label className="btn-outline cursor-pointer">
               <Upload className="h-4 w-4" />
               Importar

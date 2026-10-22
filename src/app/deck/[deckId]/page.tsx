@@ -2,12 +2,15 @@
 
 import React, { useEffect, useState, use } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, Plus, Play, Trash2, Search, Volume2 } from 'lucide-react';
+import { ArrowLeft, Plus, Play, Trash2, Search, Volume2, Pencil } from 'lucide-react';
 import Navbar from '@/components/Navbar';
 import CreateCardModal from '@/components/CreateCardModal';
 import { Deck, Flashcard } from '@/types';
 import { storage } from '@/lib/storage';
 import { canSpeak, speak } from '@/lib/speech';
+import RichText from '@/components/RichText';
+import { hasCloze } from '@/lib/cloze';
+import { isLeech } from '@/lib/scheduler';
 
 interface DeckDetailPageProps {
   params: Promise<{ deckId: string }>;
@@ -21,6 +24,8 @@ export default function DeckDetailPage({ params }: DeckDetailPageProps) {
   const [cards, setCards] = useState<Flashcard[]>([]);
   const [isNewCardOpen, setIsNewCardOpen] = useState(false);
   const [searchFilter, setSearchFilter] = useState('');
+  const [stateFilter, setStateFilter] = useState<'all' | 'new' | 'learning' | 'review' | 'leech'>('all');
+  const [editingCard, setEditingCard] = useState<Flashcard | null>(null);
   const [speechAvailable, setSpeechAvailable] = useState(false);
   useEffect(() => setSpeechAvailable(canSpeak()), []);
 
@@ -45,6 +50,11 @@ export default function DeckDetailPage({ params }: DeckDetailPageProps) {
     }
   };
 
+  const handleUpdateCard = (updated: Flashcard) => {
+    storage.updateCard(updated);
+    loadData();
+  };
+
   const handleCreateCard = (cardData: Omit<Flashcard, 'id' | 'created_at' | 'updated_at'>) => {
     storage.createCard(cardData);
     loadData();
@@ -59,9 +69,18 @@ export default function DeckDetailPage({ params }: DeckDetailPageProps) {
   }
 
   const filter = searchFilter.toLowerCase();
+  const matchesState = (c: Flashcard) =>
+    stateFilter === 'all' ? true : stateFilter === 'leech' ? isLeech(c) : c.state === stateFilter;
   const filteredCards = cards.filter(
-    (c) => c.front.toLowerCase().includes(filter) || c.back.toLowerCase().includes(filter)
+    (c) => matchesState(c) && (c.front.toLowerCase().includes(filter) || c.back.toLowerCase().includes(filter))
   );
+  const stateChips: { value: typeof stateFilter; label: string; count: number }[] = [
+    { value: 'all', label: 'Todos', count: cards.length },
+    { value: 'new', label: 'Novos', count: cards.filter((c) => c.state === 'new').length },
+    { value: 'learning', label: 'Aprendendo', count: cards.filter((c) => c.state === 'learning').length },
+    { value: 'review', label: 'Revisão', count: cards.filter((c) => c.state === 'review').length },
+    { value: 'leech', label: 'Difíceis', count: cards.filter(isLeech).length },
+  ];
 
   const stateLabel: Record<Flashcard['state'], string> = {
     new: 'novo',
@@ -119,33 +138,59 @@ export default function DeckDetailPage({ params }: DeckDetailPageProps) {
             </div>
           </div>
 
+          <div className="flex gap-1.5 overflow-x-auto text-xs">
+            {stateChips.map((chip) => (
+              <button
+                key={chip.value}
+                onClick={() => setStateFilter(chip.value)}
+                aria-pressed={stateFilter === chip.value}
+                className={`whitespace-nowrap rounded-full border px-3 py-1 ${
+                  stateFilter === chip.value ? 'border-ink bg-ink text-paper' : 'border-line text-mute hover:text-ink'
+                }`}
+              >
+                {chip.label} <span className="font-mono opacity-60">{chip.count}</span>
+              </button>
+            ))}
+          </div>
+
           <ul className="card divide-y divide-line overflow-hidden">
             {filteredCards.map((card) => (
               <li key={card.id} className="flex items-start justify-between gap-4 p-4 sm:p-5">
                 <div className="grid min-w-0 flex-1 gap-1 sm:grid-cols-2 sm:gap-6">
-                  <p className="flex items-center gap-2 font-medium">
-                    {card.front}
-                    {speechAvailable && (
+                  <div className="flex items-start gap-2 font-medium">
+                    <div className="min-w-0 flex-1">
+                      <RichText>{card.front}</RichText>
+                    </div>
+                    {speechAvailable && !hasCloze(card.front) && (
                       <button
                         onClick={() => speak(card.front)}
                         aria-label="Ouvir pronúncia"
                         title="Ouvir pronúncia"
-                        className="rounded-full p-1.5 text-mute hover:bg-soft hover:text-ink"
+                        className="shrink-0 rounded-full p-1.5 text-mute hover:bg-soft hover:text-ink"
                       >
                         <Volume2 className="h-4 w-4" />
                       </button>
                     )}
-                  </p>
-                  <div>
-                    <p className="line-clamp-2 text-sm text-mute">{card.back}</p>
-                    {card.extra && <p className="mt-1 text-xs italic text-mute">{card.extra}</p>}
+                  </div>
+                  <div className="text-sm text-mute">
+                    <RichText>{card.back}</RichText>
+                    {card.extra && <div className="mt-1 text-xs italic"><RichText>{card.extra}</RichText></div>}
                   </div>
                 </div>
                 <div className="flex shrink-0 items-center gap-3">
                   <span className="hidden rounded-full border border-line px-2 py-0.5 text-[11px] text-mute sm:inline">
+                    {isLeech(card) ? 'difícil · ' : ''}
                     {stateLabel[card.state]}
-                    {card.interval > 0 && ` · ${card.interval}d`}
+                    {card.interval > 0 && ` · ${Math.round(card.interval)}d`}
                   </span>
+                  <button
+                    onClick={() => setEditingCard(card)}
+                    title="Editar card"
+                    aria-label="Editar card"
+                    className="rounded-full p-2 text-mute hover:bg-soft hover:text-ink"
+                  >
+                    <Pencil className="h-4 w-4" />
+                  </button>
                   <button
                     onClick={() => handleDeleteCard(card.id)}
                     title="Excluir card"
@@ -170,6 +215,15 @@ export default function DeckDetailPage({ params }: DeckDetailPageProps) {
         decks={[deck]}
         currentDeckId={deck.id}
         onCreate={handleCreateCard}
+      />
+
+      <CreateCardModal
+        isOpen={!!editingCard}
+        onClose={() => setEditingCard(null)}
+        decks={[deck]}
+        card={editingCard}
+        onCreate={handleCreateCard}
+        onUpdate={handleUpdateCard}
       />
     </div>
   );

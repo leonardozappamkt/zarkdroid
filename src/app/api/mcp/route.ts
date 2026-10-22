@@ -13,7 +13,7 @@ const handler = createMcpHandler(
       'Zarkdroid is a spaced-repetition flashcard app (like Anki). The user has decks of cards; each card has a front (prompt) and a back (answer). ' +
       'Call list_decks first to get deck ids; never invent ids. Card states: new, learning, review. ' +
       'You can read, create and edit decks and cards and record reviews, but you cannot delete anything. ' +
-      'Confirm with the user before creating many cards at once.',
+      'Cards can use Markdown, LaTeX ($x^2$) and cloze deletions ({{c1::answer}}). Confirm with the user before creating many cards at once.',
   },
 );
 

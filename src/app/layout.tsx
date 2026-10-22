@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Inter, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import AuthGate from "@/components/AuthGate";
+import ServiceWorkerRegister from "@/components/ServiceWorkerRegister";
 
 const sans = Inter({ subsets: ["latin"], variable: "--font-sans", display: "swap" });
 const mono = JetBrains_Mono({ subsets: ["latin"], variable: "--font-mono", display: "swap" });
@@ -30,7 +31,9 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="pt-BR" className={`${sans.variable} ${mono.variable}`}>
-      <body className="min-h-screen bg-paper font-sans text-ink antialiased"><AuthGate>{children}</AuthGate></body>
+      <body className="min-h-screen bg-paper font-sans text-ink antialiased"><AuthGate>{children}</AuthGate>
+        <ServiceWorkerRegister />
+      </body>
     </html>
   );
 }
